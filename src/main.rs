@@ -1,16 +1,35 @@
+mod modes;
+
 use game::*;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+struct Opts {
+    #[structopt(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, StructOpt)]
+enum Command {
+    PlayLocal(PlayLocalOpts),
+}
+
+#[derive(Debug, StructOpt)]
+pub struct PlayLocalOpts {}
 
 fn main() {
-    let board = ChessBoard::default();
+    let opts: Opts = Opts::from_args();
 
-    println!("White's perspective:");
-    print_whites_perspective(&board);
-    println!("---");
-    println!("Black's perspective:");
-    print_blacks_perspective(&board);
+    match opts.command {
+        Command::PlayLocal(opts) => {
+            let mut game = modes::PlayLocal::new(opts);
+            game.play().unwrap();
+        }
+    }
 }
 
 fn print_whites_perspective(board: &ChessBoard) {
+    println!("---");
     for rank in (0..8).rev() {
         for file in 0..8 {
             let chess_index = ChessIndex::from((file, rank));
@@ -24,9 +43,11 @@ fn print_whites_perspective(board: &ChessBoard) {
 
         println!();
     }
+    println!("---");
 }
 
 fn print_blacks_perspective(board: &ChessBoard) {
+    println!("---");
     for rank in 0..8 {
         for file in 0..8 {
             let chess_index = ChessIndex::from((file, rank));
@@ -40,4 +61,5 @@ fn print_blacks_perspective(board: &ChessBoard) {
 
         println!();
     }
+    println!("---");
 }

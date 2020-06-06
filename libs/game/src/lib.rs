@@ -2,8 +2,10 @@
 
 use std::{
     convert::TryFrom,
+    error::Error,
     fmt::Display,
     ops::{Index, IndexMut},
+    str::FromStr,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -15,6 +17,14 @@ pub struct Piece {
 impl Piece {
     pub fn new(piece_type: PieceType, color: Color) -> Self {
         Self { piece_type, color }
+    }
+
+    pub fn piece_type(&self) -> PieceType {
+        self.piece_type
+    }
+
+    pub fn color(&self) -> Color {
+        self.color
     }
 
     pub fn pawn(color: Color) -> Self {
@@ -52,10 +62,36 @@ pub enum PieceType {
     King,
 }
 
+impl Display for PieceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            PieceType::Pawn => "Pawn",
+            PieceType::Knight => "Knight",
+            PieceType::Bishop => "Bishop",
+            PieceType::Rook => "Rook",
+            PieceType::Queen => "Queen",
+            PieceType::King => "King",
+        };
+
+        write!(f, "{}", output)
+    }
+}
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum Color {
     Black,
     White,
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            Color::Black => "Black",
+            Color::White => "White",
+        };
+
+        write!(f, "{}", output)
+    }
 }
 
 impl Display for Piece {
@@ -108,6 +144,46 @@ impl ChessIndex {
     }
 }
 
+impl FromStr for ChessIndex {
+    type Err = ParseChessIndexError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 2 {
+            return Err(ParseChessIndexError::LengthNot2);
+        }
+
+        let file_char = s.as_bytes()[0] as char;
+        let file =
+            File::try_from(file_char).map_err(|_| ParseChessIndexError::InvalidFile(file_char))?;
+
+        let rank_char = s.as_bytes()[1] as char;
+        let rank =
+            Rank::try_from(rank_char).map_err(|_| ParseChessIndexError::InvalidRank(rank_char))?;
+
+        Ok(ChessIndex::from((file, rank)))
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseChessIndexError {
+    LengthNot2,
+    InvalidFile(char),
+    InvalidRank(char),
+}
+
+impl Display for ParseChessIndexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            ParseChessIndexError::LengthNot2 => format!("format should be 'xy', x: file, y: rank"),
+            ParseChessIndexError::InvalidFile(file) => format!("invalid file: '{}'", file),
+            ParseChessIndexError::InvalidRank(rank) => format!("invalid rank: '{}'", rank),
+        };
+
+        write!(f, "{}", output)
+    }
+}
+
+impl Error for ParseChessIndexError {}
+
 pub enum Rank {
     First,
     Second,
@@ -117,6 +193,24 @@ pub enum Rank {
     Sixth,
     Seventh,
     Eighth,
+}
+
+impl TryFrom<char> for Rank {
+    type Error = ();
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        let rank = match value {
+            '1' => Rank::First,
+            '2' => Rank::Second,
+            '3' => Rank::Third,
+            '4' => Rank::Fourth,
+            '5' => Rank::Fifth,
+            '6' => Rank::Sixth,
+            '7' => Rank::Seventh,
+            '8' => Rank::Eighth,
+            _ => return Err(()),
+        };
+        Ok(rank)
+    }
 }
 
 impl TryFrom<u8> for Rank {
@@ -146,6 +240,25 @@ pub enum File {
     F,
     G,
     H,
+}
+
+impl TryFrom<char> for File {
+    type Error = ();
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        let file = match value {
+            'a' | 'A' => File::A,
+            'b' | 'B' => File::B,
+            'c' | 'C' => File::C,
+            'd' | 'D' => File::D,
+            'e' | 'E' => File::E,
+            'f' | 'F' => File::F,
+            'g' | 'G' => File::G,
+            'h' | 'H' => File::H,
+            _ => return Err(()),
+        };
+
+        Ok(file)
+    }
 }
 
 impl TryFrom<u8> for File {
@@ -288,6 +401,19 @@ pub enum MovePieceError {
     NoPieceToMove,
     OwnPieceAtTarget,
 }
+
+impl Display for MovePieceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            MovePieceError::NoPieceToMove => format!("no piece at specified from coordinate"),
+            MovePieceError::OwnPieceAtTarget => format!("can't move to a square you occupy"),
+        };
+
+        write!(f, "{}", output)
+    }
+}
+
+impl Error for MovePieceError {}
 
 impl Index<ChessIndex> for ChessBoard {
     type Output = Square;
