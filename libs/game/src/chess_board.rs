@@ -1177,6 +1177,20 @@ mod tests {
                 Move::new(E4, D3),
             ]
         );
+
+        board.move_piece(F7, F6).unwrap();
+        assert_eq!(
+            board.valid_moves_from(E4),
+            vec![
+                Move::new(E4, F4),
+                Move::new(E4, D4),
+                Move::new(E4, E3),
+                Move::new(E4, F5),
+                Move::new(E4, F3),
+                Move::new(E4, D5),
+                Move::new(E4, D3),
+            ]
+        )
     }
 
     #[test]
