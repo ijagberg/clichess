@@ -660,7 +660,7 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.move_piece(E1, E4).unwrap();
-        // assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
+        assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
 
         board.move_piece(C8, G6).unwrap();
         assert_eq!(board.is_checked_by_bishop(E4, Color::White), Some(G6));
