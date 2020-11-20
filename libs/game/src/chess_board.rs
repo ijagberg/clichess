@@ -29,11 +29,15 @@ impl ChessBoard {
             Color::White => self.white_king,
         };
 
-        if self.is_checked_by_knight(king_index, king_color) {
+        if let Some(_knight_idx) = self.is_checked_by_knight(king_index, king_color) {
             return true;
         }
 
-        if self.is_checked_by_pawn(king_index, king_color) {
+        if let Some(_pawn_idx) = self.is_checked_by_pawn(king_index, king_color) {
+            return true;
+        }
+
+        if let Some(_bishop_idx) = self.is_checked_by_bishop(king_index, king_color) {
             return true;
         }
 
@@ -111,7 +115,7 @@ impl ChessBoard {
         None
     }
 
-    fn is_checked_by_pawn(&self, king_index: ChessIndex, king_color: Color) -> bool {
+    fn is_checked_by_pawn(&self, king_index: ChessIndex, king_color: Color) -> Option<ChessIndex> {
         let opponent_color = king_color.opponent();
         match king_color {
             Color::White => {
@@ -128,7 +132,7 @@ impl ChessBoard {
                             .map(|p| p.is_pawn() && p.color() == opponent_color)
                             .unwrap_or(false)
                         {
-                            return true;
+                            return Some(to_index);
                         }
                     }
                 }
@@ -147,17 +151,21 @@ impl ChessBoard {
                             .map(|p| p.is_pawn() && p.color() == opponent_color)
                             .unwrap_or(false)
                         {
-                            return true;
+                            return Some(to_index);
                         }
                     }
                 }
             }
         }
 
-        false
+        None
     }
 
-    fn is_checked_by_knight(&self, king_index: ChessIndex, king_color: Color) -> bool {
+    fn is_checked_by_knight(
+        &self,
+        king_index: ChessIndex,
+        king_color: Color,
+    ) -> Option<ChessIndex> {
         let opponent_color = king_color.opponent();
         // check if there is an opponent knight a knight's move away
         let offsets = vec![
@@ -181,11 +189,12 @@ impl ChessBoard {
                     .map(|p| p.is_knight() && p.color() == opponent_color)
                     .unwrap_or(false)
                 {
-                    return true;
+                    return Some(to_index);
                 }
             }
         }
-        false
+
+        None
     }
 
     fn get_king(&self, color: Color) -> Option<&Piece> {
@@ -638,10 +647,10 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.move_piece(E1, E4).unwrap();
-        assert!(!board.is_checked_by_pawn(E4, Color::White));
+        assert_eq!(board.is_checked_by_pawn(E4, Color::White), None);
 
         board.move_piece(D7, D5).unwrap();
-        assert!(board.is_checked_by_pawn(E4, Color::White));
+        assert_eq!(board.is_checked_by_pawn(E4, Color::White), Some(D5));
     }
 
     #[test]
@@ -649,10 +658,10 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.move_piece(E1, E4).unwrap();
-        assert!(!board.is_checked_by_knight(E4, Color::White));
+        assert_eq!(board.is_checked_by_knight(E4, Color::White), None);
 
         board.move_piece(G8, F6).unwrap();
-        assert!(board.is_checked_by_knight(E4, Color::White));
+        assert_eq!(board.is_checked_by_knight(E4, Color::White), Some(F6));
     }
 
     #[test]
