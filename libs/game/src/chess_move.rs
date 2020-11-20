@@ -1,20 +1,14 @@
-use crate::{ChessBoard, ChessIndex, Piece};
+use crate::{ChessIndex, Piece};
 
-pub struct Move<'a> {
+pub struct Move {
     piece: Piece,
     from: ChessIndex,
     to: ChessIndex,
-    board: &'a ChessBoard,
 }
 
-impl<'a> Move<'a> {
-    pub fn new(piece: Piece, from: ChessIndex, to: ChessIndex, board: &'a ChessBoard) -> Self {
-        Self {
-            piece,
-            from,
-            to,
-            board,
-        }
+impl Move {
+    pub fn new(piece: Piece, from: ChessIndex, to: ChessIndex) -> Self {
+        Self { piece, from, to }
     }
 
     pub fn from_index(&self) -> ChessIndex {

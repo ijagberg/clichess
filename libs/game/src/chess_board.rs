@@ -431,12 +431,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index, &self))
+                        moves.push(Move::new(rook, from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(rook, from_index, to_index, &self));
+                    moves.push(Move::new(rook, from_index, to_index));
                 }
             }
         }
@@ -447,12 +447,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index, &self))
+                        moves.push(Move::new(rook, from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(rook, from_index, to_index, &self));
+                    moves.push(Move::new(rook, from_index, to_index));
                 }
             }
         }
@@ -463,12 +463,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index, &self))
+                        moves.push(Move::new(rook, from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(rook, from_index, to_index, &self));
+                    moves.push(Move::new(rook, from_index, to_index));
                 }
             }
         }
@@ -479,17 +479,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index, &self))
+                        moves.push(Move::new(rook, from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(
-                        Piece::rook(piece_color),
-                        from_index,
-                        to_index,
-                        &self,
-                    ));
+                    moves.push(Move::new(Piece::rook(piece_color), from_index, to_index));
                 }
             }
         }
@@ -524,7 +519,7 @@ impl ChessBoard {
                 {
                     continue;
                 }
-                moves.push(Move::new(knight, from_index, to_index, &self));
+                moves.push(Move::new(knight, from_index, to_index));
             }
         }
         moves
@@ -544,11 +539,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index, &self));
+                        moves.push(Move::new(bishop, from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index, &self)),
+                _ => moves.push(Move::new(bishop, from_index, to_index)),
             }
         }
 
@@ -562,11 +557,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index, &self));
+                        moves.push(Move::new(bishop, from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index, &self)),
+                _ => moves.push(Move::new(bishop, from_index, to_index)),
             }
         }
 
@@ -581,11 +576,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index, &self));
+                        moves.push(Move::new(bishop, from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index, &self)),
+                _ => moves.push(Move::new(bishop, from_index, to_index)),
             }
         }
 
@@ -600,11 +595,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index, &self));
+                        moves.push(Move::new(bishop, from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index, &self)),
+                _ => moves.push(Move::new(bishop, from_index, to_index)),
             }
         }
 
@@ -897,13 +892,13 @@ mod tests {
 
         board.move_piece(E1, E4).unwrap();
         assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
-        
+
         board.move_piece(D8, C6).unwrap();
         assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(C6));
-        
+
         board.move_piece(C6, B4).unwrap();
         assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(B4));
-        
+
         board.move_piece(C1, D4).unwrap();
         assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
     }
