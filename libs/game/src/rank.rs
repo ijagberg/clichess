@@ -111,3 +111,42 @@ impl DoubleEndedIterator for RankIter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rank_iter() {
+        assert_eq!(
+            RankIter::new(Rank::First).collect::<Vec<_>>(),
+            vec![
+                Rank::First,
+                Rank::Second,
+                Rank::Third,
+                Rank::Fourth,
+                Rank::Fifth,
+                Rank::Sixth,
+                Rank::Seventh,
+                Rank::Eighth,
+            ]
+        );
+
+        assert_eq!(
+            RankIter::new(Rank::Third,).collect::<Vec<_>>(),
+            vec![
+                Rank::Third,
+                Rank::Fourth,
+                Rank::Fifth,
+                Rank::Sixth,
+                Rank::Seventh,
+                Rank::Eighth,
+            ]
+        );
+
+        assert_eq!(
+            RankIter::new(Rank::Fourth).rev().collect::<Vec<_>>(),
+            vec![Rank::Fourth, Rank::Third, Rank::Second, Rank::First]
+        );
+    }
+}

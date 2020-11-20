@@ -128,3 +128,35 @@ impl DoubleEndedIterator for FileIter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_iter() {
+        assert_eq!(
+            FileIter::new(File::A).collect::<Vec<_>>(),
+            vec![
+                File::A,
+                File::B,
+                File::C,
+                File::D,
+                File::E,
+                File::F,
+                File::G,
+                File::H,
+            ]
+        );
+
+        assert_eq!(
+            FileIter::new(File::C).collect::<Vec<_>>(),
+            vec![File::C, File::D, File::E, File::F, File::G, File::H]
+        );
+
+        assert_eq!(
+            FileIter::new(File::D).rev().collect::<Vec<_>>(),
+            vec![File::D, File::C, File::B, File::A]
+        );
+    }
+}

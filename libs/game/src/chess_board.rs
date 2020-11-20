@@ -17,16 +17,157 @@ pub struct ChessBoard {
 
 impl ChessBoard {
     pub fn is_checked(&self, color: Color) -> bool {
-        let opponent_color = color.opponent();
-        let king = self.get_king(color).expect(&format!(
-            "no {} king exists",
-            color.to_string().to_lowercase()
-        ));
+        let king_color = self
+            .get_king(color)
+            .expect(&format!(
+                "no {} king exists",
+                color.to_string().to_lowercase()
+            ))
+            .color();
         let king_index = match color {
             Color::Black => self.black_king,
             Color::White => self.white_king,
         };
 
+        if self.is_checked_by_knight(king_index, king_color) {
+            return true;
+        }
+
+        if self.is_checked_by_pawn(king_index, king_color) {
+            return true;
+        }
+
+        false
+    }
+
+    fn is_checked_by_bishop(
+        &self,
+        king_index: ChessIndex,
+        king_color: Color,
+    ) -> Option<ChessIndex> {
+        let opponent_color = king_color.opponent();
+
+        // increasing file, increasing rank
+        for idx in FileIter::new(king_index.file())
+            .flat_map(|file| {
+                RankIter::new(king_index.rank()).map(move |rank| ChessIndex::new(file, rank))
+            })
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_bishop() {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // increasing file, decreasing rank
+        for idx in FileIter::new(king_index.file())
+            .flat_map(|file| {
+                RankIter::new(king_index.rank())
+                    .rev()
+                    .map(move |rank| ChessIndex::new(file, rank))
+            })
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_bishop() {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing file, increasing rank
+        for idx in FileIter::new(king_index.file())
+            .rev()
+            .flat_map(|file| {
+                RankIter::new(king_index.rank()).map(move |rank| ChessIndex::new(file, rank))
+            })
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_bishop() {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing file, decreasing rank
+        for idx in FileIter::new(king_index.file())
+            .rev()
+            .flat_map(|file| {
+                RankIter::new(king_index.rank())
+                    .rev()
+                    .map(move |rank| ChessIndex::new(file, rank))
+            })
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_bishop() {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        None
+    }
+
+    fn is_checked_by_pawn(&self, king_index: ChessIndex, king_color: Color) -> bool {
+        let opponent_color = king_color.opponent();
+        match king_color {
+            Color::White => {
+                // black pawn on king's rank + 1
+                let offsets = vec![(-1, 1), (1, 1)];
+
+                for (file_offset, rank_offset) in offsets {
+                    if let Ok(to_index) = ChessIndex::try_from((
+                        i32::from(&king_index.file()) + file_offset,
+                        i32::from(&king_index.rank()) + rank_offset,
+                    )) {
+                        if self[to_index]
+                            .piece()
+                            .map(|p| p.is_pawn() && p.color() == opponent_color)
+                            .unwrap_or(false)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            Color::Black => {
+                // white pawn on king's rank - 1
+                let offsets = vec![(-1, -1), (1, -1)];
+
+                for (file_offset, rank_offset) in offsets {
+                    if let Ok(to_index) = ChessIndex::try_from((
+                        i32::from(&king_index.file()) + file_offset,
+                        i32::from(&king_index.rank()) + rank_offset,
+                    )) {
+                        if self[to_index]
+                            .piece()
+                            .map(|p| p.is_pawn() && p.color() == opponent_color)
+                            .unwrap_or(false)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    fn is_checked_by_knight(&self, king_index: ChessIndex, king_color: Color) -> bool {
+        let opponent_color = king_color.opponent();
         // check if there is an opponent knight a knight's move away
         let offsets = vec![
             (2, 1),
@@ -46,15 +187,14 @@ impl ChessBoard {
             )) {
                 if self[to_index]
                     .piece()
-                    .map(|p| p.color() == piece_color)
+                    .map(|p| p.is_knight() && p.color() == opponent_color)
                     .unwrap_or(false)
                 {
-                    continue;
+                    return true;
                 }
-                moves.push(Move::new(knight, from_index, to_index, &self));
             }
         }
-        moves
+        false
     }
 
     fn get_king(&self, color: Color) -> Option<&Piece> {
@@ -435,6 +575,8 @@ impl Default for ChessBoard {
 
 #[cfg(test)]
 mod tests {
+    use consts::*;
+
     use super::*;
 
     #[test]
@@ -442,13 +584,9 @@ mod tests {
         let mut board = ChessBoard::default();
 
         // move e2 pawn to e6 to prepare test
-        board
-            .move_piece((File::E, Rank::Second), (File::E, Rank::Sixth))
-            .unwrap();
+        board.move_piece(E2, E6).unwrap();
 
-        let black_d7_pawn = board
-            .move_piece((File::E, Rank::Sixth), (File::D, Rank::Seventh))
-            .unwrap();
+        let black_d7_pawn = board.move_piece(E6, D7).unwrap();
 
         assert_eq!(Some(Piece::pawn(Color::Black)), black_d7_pawn);
     }
@@ -456,108 +594,87 @@ mod tests {
     #[test]
     fn rook_moves() {
         let mut board = ChessBoard::default();
-        // move a1 rook to e4 to prepare test
-        board
-            .move_piece((File::A, Rank::Second), (File::E, Rank::Fourth))
-            .unwrap();
+        board.move_piece(A2, E4).unwrap();
 
         let targets: Vec<ChessIndex> = board
-            .valid_rook_moves_from(ChessIndex::from((File::E, Rank::Fourth)), Color::White)
+            .valid_rook_moves_from(E4, Color::White)
             .iter()
             .map(|m| m.to_index())
             .collect();
 
-        assert_eq!(
-            vec![
-                // increasing rank
-                ChessIndex::from((File::E, Rank::Fifth)),
-                ChessIndex::from((File::E, Rank::Sixth)),
-                ChessIndex::from((File::E, Rank::Seventh)),
-                // decreasing rank
-                ChessIndex::from((File::E, Rank::Third)),
-                // increasing file
-                ChessIndex::from((File::F, Rank::Fourth)),
-                ChessIndex::from((File::G, Rank::Fourth)),
-                ChessIndex::from((File::H, Rank::Fourth)),
-                // decreasing file
-                ChessIndex::from((File::D, Rank::Fourth)),
-                ChessIndex::from((File::C, Rank::Fourth)),
-                ChessIndex::from((File::B, Rank::Fourth)),
-                ChessIndex::from((File::A, Rank::Fourth)),
-            ],
-            targets
-        )
+        assert_eq!(vec![E5, E6, E7, E3, F4, G4, H4, D4, C4, B4, A4,], targets)
     }
 
     #[test]
     fn knight_moves() {
         let mut board = ChessBoard::default();
 
-        board
-            .move_piece((File::G, Rank::First), (File::E, Rank::Fourth))
-            .unwrap();
+        board.move_piece(G1, E4).unwrap();
 
         let targets: Vec<ChessIndex> = board
-            .valid_knight_moves_from(ChessIndex::from((File::B, Rank::First)), Color::White)
+            .valid_knight_moves_from(B1, Color::White)
             .iter()
             .map(|m| m.to_index())
             .collect();
 
-        assert_eq!(
-            vec![
-                ChessIndex::from((File::C, Rank::Third)),
-                ChessIndex::from((File::A, Rank::Third))
-            ],
-            targets
-        );
+        assert_eq!(vec![C3, A3], targets);
 
         let targets: Vec<ChessIndex> = board
-            .valid_knight_moves_from(ChessIndex::from((File::E, Rank::Fourth)), Color::White)
+            .valid_knight_moves_from(E4, Color::White)
             .iter()
             .map(|m| m.to_index())
             .collect();
 
-        assert_eq!(
-            vec![
-                ChessIndex::from((File::G, Rank::Fifth)),
-                ChessIndex::from((File::G, Rank::Third)),
-                ChessIndex::from((File::C, Rank::Fifth)),
-                ChessIndex::from((File::C, Rank::Third)),
-                ChessIndex::from((File::F, Rank::Sixth)),
-                ChessIndex::from((File::D, Rank::Sixth)),
-            ],
-            targets
-        );
+        assert_eq!(vec![G5, G3, C5, C3, F6, D6,], targets);
     }
 
     #[test]
     fn bishop_moves() {
         let mut board = ChessBoard::default();
-        board
-            .move_piece((File::F, Rank::First), (File::F, Rank::Fourth))
-            .unwrap();
+        board.move_piece(F1, F4).unwrap();
 
         let targets: Vec<ChessIndex> = board
-            .valid_bishop_moves_from(ChessIndex::new(File::F, Rank::Fourth), Color::White)
+            .valid_bishop_moves_from(F4, Color::White)
             .iter()
             .map(|m| m.to_index())
             .collect();
 
-        assert_eq!(
-            vec![
-                // increasing file, increasing rank
-                ChessIndex::new(File::G, Rank::Fifth),
-                ChessIndex::new(File::H, Rank::Sixth),
-                // increasing file, decreasing rank
-                ChessIndex::new(File::G, Rank::Third),
-                // decreasing file, increasing rank
-                ChessIndex::new(File::E, Rank::Fifth),
-                ChessIndex::new(File::D, Rank::Sixth),
-                ChessIndex::new(File::C, Rank::Seventh),
-                // decreasing file, decreasing rank
-                ChessIndex::new(File::E, Rank::Third),
-            ],
-            targets
-        );
+        assert_eq!(vec![G5, H6, G3, E5, D6, C7, E3,], targets);
+    }
+
+    #[test]
+    fn test_is_checked_by_pawn() {
+        let mut board = ChessBoard::default();
+
+        board.move_piece(E1, E4).unwrap();
+        assert!(!board.is_checked_by_pawn(E4, Color::White));
+
+        board.move_piece(D7, D5).unwrap();
+        assert!(board.is_checked_by_pawn(E4, Color::White));
+    }
+
+    #[test]
+    fn test_is_checked_by_knight() {
+        let mut board = ChessBoard::default();
+
+        board.move_piece(E1, E4).unwrap();
+        assert!(!board.is_checked_by_knight(E4, Color::White));
+
+        board.move_piece(G8, F6).unwrap();
+        assert!(board.is_checked_by_knight(E4, Color::White));
+    }
+
+    #[test]
+    fn test_is_checked_by_bishop() {
+        let mut board = ChessBoard::default();
+
+        board.move_piece(E1, E4).unwrap();
+        assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
+
+        board.move_piece(C8, G6).unwrap();
+        assert_eq!(board.is_checked_by_bishop(E4, Color::White), Some(G6));
+
+        board.move_piece(F2, F5).unwrap();
+        assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
     }
 }
