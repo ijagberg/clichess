@@ -1,5 +1,4 @@
-use crate::{ChessBoard, ChessIndex, Color, Piece};
-use std::{fmt::Debug, hash::Hash};
+use crate::{Color, Piece};
 
 pub struct Square {
     color: Color,
