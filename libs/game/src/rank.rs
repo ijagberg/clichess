@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, fmt::Display};
 
-#[derive(Debug, Copy, PartialEq, Clone)]
+#[derive(Debug, Copy, PartialEq, Clone, Eq)]
 pub enum Rank {
     First,
     Second,

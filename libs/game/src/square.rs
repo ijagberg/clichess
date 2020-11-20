@@ -1,5 +1,6 @@
 use crate::{Color, Piece};
 
+#[derive(Debug, Clone)]
 pub struct Square {
     color: Color,
     piece: Option<Piece>,

@@ -13,7 +13,7 @@ pub use file::{File, FileIter};
 pub use rank::{Rank, RankIter};
 use std::{convert::TryFrom, error::Error, fmt::Display, str::FromStr};
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Eq)]
 pub struct Piece {
     piece_type: PieceType,
     color: Color,
@@ -99,7 +99,7 @@ impl Piece {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Eq)]
 pub enum PieceType {
     Pawn,
     Knight,
@@ -124,7 +124,7 @@ impl Display for PieceType {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug, Eq)]
 pub enum Color {
     Black,
     White,
@@ -170,7 +170,7 @@ impl Display for Piece {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Eq)]
 pub struct ChessIndex(File, Rank);
 
 impl ChessIndex {

@@ -9,6 +9,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+#[derive(Debug, Clone)]
 pub struct ChessBoard {
     white_king: ChessIndex,
     black_king: ChessIndex,
@@ -403,27 +404,55 @@ impl ChessBoard {
         }
     }
 
-    pub fn valid_moves_from(&self, index: ChessIndex) -> Vec<Move> {
-        let piece = match self[index].piece() {
+    pub fn valid_moves_from(&self, from_index: ChessIndex) -> Vec<Move> {
+        let piece = match self[from_index].piece() {
             Some(p) => p,
             None => return Vec::new(),
         };
 
-        match piece.piece_type() {
-            PieceType::Pawn => {}
-            PieceType::Knight => {}
-            PieceType::Bishop => {}
-            PieceType::Rook => {}
-            PieceType::Queen => {}
-            PieceType::King => {}
+        let valid_moves = match piece.piece_type() {
+            PieceType::Pawn => unimplemented!(),
+            PieceType::Knight => self.valid_knight_moves_from(from_index, piece.color()),
+            PieceType::Bishop => self.valid_bishop_moves_from(from_index, piece.color()),
+            PieceType::Rook => self.valid_rook_moves_from(from_index, piece.color()),
+            PieceType::Queen => unimplemented!(),
+            PieceType::King => unimplemented!(),
+        };
+
+        let mut actual_valid_moves = Vec::new();
+        let mut clone: ChessBoard = self.clone();
+        for m in valid_moves {
+            let p = clone
+                .execute_move(m)
+                .expect(&format!("invalid move attempted: '{:?}'", m));
+            if clone.is_checked(piece.color()) {
+                // can't actually make this move
+            } else {
+                actual_valid_moves.push(m);
+            }
+
+            // undo the move
+            // put the moved piece back
+            clone[from_index].set_piece(*piece);
+            // put the targeted piece back
+            match p {
+                Some(p) => {
+                    clone[m.to_index()].set_piece(p);
+                }
+                None => {
+                    clone[m.to_index()].clear();
+                }
+            }
         }
 
-        todo!()
+        actual_valid_moves
+    }
+
+    pub fn execute_move(&mut self, chess_move: Move) -> Result<Option<Piece>, MovePieceError> {
+        self.move_piece(chess_move.from_index(), chess_move.to_index())
     }
 
     fn valid_rook_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
-        let rook = Piece::rook(piece_color);
-
         // increasing rank
         let mut moves = Vec::new();
         for rank in self.rank_iter(from_index.rank()).skip(1) {
@@ -431,12 +460,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index))
+                        moves.push(Move::new(from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(rook, from_index, to_index));
+                    moves.push(Move::new(from_index, to_index));
                 }
             }
         }
@@ -447,12 +476,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index))
+                        moves.push(Move::new(from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(rook, from_index, to_index));
+                    moves.push(Move::new(from_index, to_index));
                 }
             }
         }
@@ -463,12 +492,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index))
+                        moves.push(Move::new(from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(rook, from_index, to_index));
+                    moves.push(Move::new(from_index, to_index));
                 }
             }
         }
@@ -479,12 +508,12 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(rook, from_index, to_index))
+                        moves.push(Move::new(from_index, to_index))
                     }
                     break;
                 }
                 _ => {
-                    moves.push(Move::new(Piece::rook(piece_color), from_index, to_index));
+                    moves.push(Move::new(from_index, to_index));
                 }
             }
         }
@@ -493,7 +522,6 @@ impl ChessBoard {
     }
 
     fn valid_knight_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
-        let knight = Piece::knight(piece_color);
         let mut moves = Vec::new();
 
         let offsets = vec![
@@ -519,14 +547,13 @@ impl ChessBoard {
                 {
                     continue;
                 }
-                moves.push(Move::new(knight, from_index, to_index));
+                moves.push(Move::new(from_index, to_index));
             }
         }
         moves
     }
 
     fn valid_bishop_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
-        let bishop = Piece::bishop(piece_color);
         let mut moves = Vec::new();
 
         // increasing file, increasing rank
@@ -539,11 +566,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index));
+                        moves.push(Move::new(from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index)),
+                _ => moves.push(Move::new(from_index, to_index)),
             }
         }
 
@@ -557,11 +584,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index));
+                        moves.push(Move::new(from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index)),
+                _ => moves.push(Move::new(from_index, to_index)),
             }
         }
 
@@ -576,11 +603,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index));
+                        moves.push(Move::new(from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index)),
+                _ => moves.push(Move::new(from_index, to_index)),
             }
         }
 
@@ -595,11 +622,11 @@ impl ChessBoard {
             match self[to_index].piece() {
                 Some(target_piece) => {
                     if target_piece.color() != piece_color {
-                        moves.push(Move::new(bishop, from_index, to_index));
+                        moves.push(Move::new(from_index, to_index));
                     }
                     break;
                 }
-                _ => moves.push(Move::new(bishop, from_index, to_index)),
+                _ => moves.push(Move::new(from_index, to_index)),
             }
         }
 
@@ -632,6 +659,16 @@ impl ChessBoard {
                 // there is an opponent piece at the target square
                 // replace the other piece
                 let from_piece = self[from].take_piece().unwrap(); // can call unwrap here because we matched on `piece()` above
+                if from_piece.is_king() {
+                    match from_piece.color() {
+                        Color::Black => {
+                            self.black_king = to;
+                        }
+                        Color::White => {
+                            self.white_king = to;
+                        }
+                    }
+                }
                 let old_piece = self[to].set_piece(from_piece).unwrap(); // --||--;
 
                 Ok(Some(old_piece))
@@ -643,6 +680,16 @@ impl ChessBoard {
             None => {
                 // there is no piece at the target square
                 let from_piece = self[from].take_piece().unwrap();
+                if from_piece.is_king() {
+                    match from_piece.color() {
+                        Color::Black => {
+                            self.black_king = to;
+                        }
+                        Color::White => {
+                            self.white_king = to;
+                        }
+                    }
+                }
                 self[to].set_piece(from_piece);
                 Ok(None)
             }
@@ -901,5 +948,37 @@ mod tests {
 
         board.move_piece(C1, D4).unwrap();
         assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
+    }
+
+    #[test]
+    fn test_valid_moves_from() {
+        let mut board = ChessBoard::default();
+
+        assert_eq!(board.valid_moves_from(A1), vec![]);
+
+        board.move_piece(A1, A3).unwrap();
+        assert_eq!(
+            board.valid_moves_from(A3),
+            vec![
+                Move::new(A3, A4),
+                Move::new(A3, A5),
+                Move::new(A3, A6),
+                Move::new(A3, A7),
+                Move::new(A3, B3),
+                Move::new(A3, C3),
+                Move::new(A3, D3),
+                Move::new(A3, E3),
+                Move::new(A3, F3),
+                Move::new(A3, G3),
+                Move::new(A3, H3),
+            ]
+        );
+
+        board.move_piece(E8, A6).unwrap();
+        board.move_piece(A8, A5).unwrap();
+        assert_eq!(
+            board.valid_moves_from(A5),
+            vec![Move::new(A5, A4), Move::new(A5, A3)]
+        );
     }
 }

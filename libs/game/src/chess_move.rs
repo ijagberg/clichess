@@ -1,14 +1,14 @@
-use crate::{ChessIndex, Piece};
+use crate::ChessIndex;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Move {
-    piece: Piece,
     from: ChessIndex,
     to: ChessIndex,
 }
 
 impl Move {
-    pub fn new(piece: Piece, from: ChessIndex, to: ChessIndex) -> Self {
-        Self { piece, from, to }
+    pub fn new(from: ChessIndex, to: ChessIndex) -> Self {
+        Self { from, to }
     }
 
     pub fn from_index(&self) -> ChessIndex {
