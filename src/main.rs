@@ -1,7 +1,5 @@
 mod modes;
 
-use std::convert::TryFrom;
-
 use game::*;
 use structopt::StructOpt;
 
@@ -32,7 +30,9 @@ fn main() {
 
 fn print_whites_perspective(board: &ChessBoard) {
     println!("---");
-    for rank in RankIter::new(Rank::First).rev() {
+    let mut lines = Vec::new();
+    for rank in RankIter::new(Rank::First) {
+        let mut pieces = Vec::new();
         for file in FileIter::new(File::A) {
             let chess_index = ChessIndex::from((file, rank));
             let output = match board[chess_index].piece() {
@@ -40,37 +40,32 @@ fn print_whites_perspective(board: &ChessBoard) {
                 None => " ".to_string(),
             };
 
-            print!("{}", output);
+            pieces.push(output);
         }
 
-        println!();
+        lines.push(pieces.join(" "));
     }
+    println!("{}", lines.join("\n"));
     println!("---");
 }
 
 fn print_blacks_perspective(board: &ChessBoard) {
     println!("---");
+    let mut lines = Vec::new();
     for rank in RankIter::new(Rank::First) {
-        for file in FileIter::new(File::A).rev() {
+        let mut pieces = Vec::new();
+        for file in FileIter::new(File::H).rev() {
             let chess_index = ChessIndex::from((file, rank));
             let output = match board[chess_index].piece() {
                 Some(p) => format!("{}", p),
                 None => " ".to_string(),
             };
 
-            print!("{}", output);
+            pieces.push(output);
         }
 
-        println!();
+        lines.push(pieces.join(" "));
     }
+    println!("{}", lines.join("\n"));
     println!("---");
-}
-
-fn chess_index(s: &str) -> ChessIndex {
-    let chars: Vec<_> = s.chars().collect();
-
-    ChessIndex::from((
-        File::try_from(chars[0]).unwrap(),
-        Rank::try_from(chars[1]).unwrap(),
-    ))
 }
