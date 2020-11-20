@@ -1,8 +1,12 @@
-use crate::PlayLocalOpts;
 use game::{ChessBoard, ChessIndex, Color};
 use std::io;
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+pub struct PlayLocalOpts {}
 
 pub struct PlayLocal {
+    #[allow(unused)]
     opts: PlayLocalOpts,
     board: ChessBoard,
 }
@@ -49,7 +53,7 @@ impl PlayLocal {
 
             let (from, to) = match parse_move(&input) {
                 Ok(ok) => ok,
-                Err(e) => {
+                Err(_) => {
                     continue;
                 }
             };
@@ -66,7 +70,8 @@ impl PlayLocal {
             match self.board.move_piece(from, to) {
                 Ok(Some(taken_piece)) => {
                     println!(
-                        "white took piece: {} ({} {})",
+                        "{} took piece: {} ({} {})",
+                        player.to_string().to_lowercase(),
                         taken_piece,
                         taken_piece.color(),
                         taken_piece.piece_type()

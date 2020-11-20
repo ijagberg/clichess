@@ -1,6 +1,6 @@
 use crate::{
-    consts, file::FileIter, rank::RankIter, square::Square, ChessIndex, Color, File, Move, Piece,
-    PieceType, Rank,
+    consts, file::FileIter, rank::RankIter, square::Square, ChessIndex, Color, Move, Piece,
+    PieceType,
 };
 use std::{
     convert::TryFrom,
@@ -61,8 +61,8 @@ impl ChessBoard {
         let opponent_color = king_color.opponent();
 
         // increasing file, increasing rank
-        for idx in FileIter::new(king_index.file())
-            .zip(RankIter::new(king_index.rank()))
+        for idx in FileIter::start_at(king_index.file())
+            .zip(RankIter::start_at(king_index.rank()))
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -76,8 +76,8 @@ impl ChessBoard {
         }
 
         // increasing file, decreasing rank
-        for idx in FileIter::new(king_index.file())
-            .zip(RankIter::new(king_index.rank()).rev())
+        for idx in FileIter::start_at(king_index.file())
+            .zip(RankIter::start_at(king_index.rank()).rev())
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -91,9 +91,9 @@ impl ChessBoard {
         }
 
         // decreasing file, increasing rank
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .rev()
-            .zip(RankIter::new(king_index.rank()))
+            .zip(RankIter::start_at(king_index.rank()))
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -107,9 +107,9 @@ impl ChessBoard {
         }
 
         // decreasing file, decreasing rank
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .rev()
-            .zip(RankIter::new(king_index.rank()).rev())
+            .zip(RankIter::start_at(king_index.rank()).rev())
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -211,7 +211,7 @@ impl ChessBoard {
         let opponent_color = king_color.opponent();
 
         // increasing file
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .map(|file| ChessIndex::new(file, king_index.rank()))
             .skip(1)
         {
@@ -225,7 +225,7 @@ impl ChessBoard {
         }
 
         // decreasing file
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .rev()
             .map(|file| ChessIndex::new(file, king_index.rank()))
             .skip(1)
@@ -240,7 +240,7 @@ impl ChessBoard {
         }
 
         // increasing rank
-        for idx in RankIter::new(king_index.rank())
+        for idx in RankIter::start_at(king_index.rank())
             .map(|rank| ChessIndex::new(king_index.file(), rank))
             .skip(1)
         {
@@ -254,7 +254,7 @@ impl ChessBoard {
         }
 
         // decreasing rank
-        for idx in RankIter::new(king_index.rank())
+        for idx in RankIter::start_at(king_index.rank())
             .rev()
             .map(|rank| ChessIndex::new(king_index.file(), rank))
             .skip(1)
@@ -275,7 +275,7 @@ impl ChessBoard {
         let opponent_color = king_color.opponent();
 
         // increasing file
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .map(|file| ChessIndex::new(file, king_index.rank()))
             .skip(1)
         {
@@ -289,7 +289,7 @@ impl ChessBoard {
         }
 
         // decreasing file
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .rev()
             .map(|file| ChessIndex::new(file, king_index.rank()))
             .skip(1)
@@ -304,7 +304,7 @@ impl ChessBoard {
         }
 
         // increasing rank
-        for idx in RankIter::new(king_index.rank())
+        for idx in RankIter::start_at(king_index.rank())
             .map(|rank| ChessIndex::new(king_index.file(), rank))
             .skip(1)
         {
@@ -318,7 +318,7 @@ impl ChessBoard {
         }
 
         // decreasing rank
-        for idx in RankIter::new(king_index.rank())
+        for idx in RankIter::start_at(king_index.rank())
             .rev()
             .map(|rank| ChessIndex::new(king_index.file(), rank))
             .skip(1)
@@ -333,8 +333,8 @@ impl ChessBoard {
         }
 
         // increasing file, increasing rank
-        for idx in FileIter::new(king_index.file())
-            .zip(RankIter::new(king_index.rank()))
+        for idx in FileIter::start_at(king_index.file())
+            .zip(RankIter::start_at(king_index.rank()))
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -348,8 +348,8 @@ impl ChessBoard {
         }
 
         // increasing file, decreasing rank
-        for idx in FileIter::new(king_index.file())
-            .zip(RankIter::new(king_index.rank()).rev())
+        for idx in FileIter::start_at(king_index.file())
+            .zip(RankIter::start_at(king_index.rank()).rev())
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -363,9 +363,9 @@ impl ChessBoard {
         }
 
         // decreasing file, increasing rank
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .rev()
-            .zip(RankIter::new(king_index.rank()))
+            .zip(RankIter::start_at(king_index.rank()))
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -379,9 +379,9 @@ impl ChessBoard {
         }
 
         // decreasing file, decreasing rank
-        for idx in FileIter::new(king_index.file())
+        for idx in FileIter::start_at(king_index.file())
             .rev()
-            .zip(RankIter::new(king_index.rank()).rev())
+            .zip(RankIter::start_at(king_index.rank()).rev())
             .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
@@ -555,7 +555,7 @@ impl ChessBoard {
         let mut moves = Vec::new();
 
         // increasing rank
-        for rank in self.rank_iter(from_index.rank()).skip(1) {
+        for rank in RankIter::start_at(from_index.rank()).skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -571,7 +571,7 @@ impl ChessBoard {
         }
 
         // decreasing rank
-        for rank in self.rank_iter(from_index.rank()).rev().skip(1) {
+        for rank in RankIter::start_at(from_index.rank()).rev().skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -587,7 +587,7 @@ impl ChessBoard {
         }
 
         // increasing file
-        for file in self.file_iter(from_index.file()).skip(1) {
+        for file in FileIter::start_at(from_index.file()).skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -603,7 +603,7 @@ impl ChessBoard {
         }
 
         // decreasing file
-        for file in self.file_iter(from_index.file()).rev().skip(1) {
+        for file in FileIter::start_at(from_index.file()).rev().skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -657,9 +657,8 @@ impl ChessBoard {
         let mut moves = Vec::new();
 
         // increasing file, increasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
-            .zip(self.rank_iter(from_index.rank()))
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
+            .zip(RankIter::start_at(from_index.rank()))
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -675,9 +674,8 @@ impl ChessBoard {
         }
 
         // increasing file, decreasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
-            .zip(self.rank_iter(from_index.rank()).rev())
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
+            .zip(RankIter::start_at(from_index.rank()).rev())
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -693,10 +691,9 @@ impl ChessBoard {
         }
 
         // decreasing file, increasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
             .rev()
-            .zip(self.rank_iter(from_index.rank()))
+            .zip(RankIter::start_at(from_index.rank()))
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -712,10 +709,9 @@ impl ChessBoard {
         }
 
         // decreasing file, decreasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
             .rev()
-            .zip(self.rank_iter(from_index.rank()).rev())
+            .zip(RankIter::start_at(from_index.rank()).rev())
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -736,7 +732,7 @@ impl ChessBoard {
     fn valid_queen_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
         // increasing rank
         let mut moves = Vec::new();
-        for rank in self.rank_iter(from_index.rank()).skip(1) {
+        for rank in RankIter::start_at(from_index.rank()).skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -752,7 +748,7 @@ impl ChessBoard {
         }
 
         // decreasing rank
-        for rank in self.rank_iter(from_index.rank()).rev().skip(1) {
+        for rank in RankIter::start_at(from_index.rank()).rev().skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -768,7 +764,7 @@ impl ChessBoard {
         }
 
         // increasing file
-        for file in self.file_iter(from_index.file()).skip(1) {
+        for file in FileIter::start_at(from_index.file()).skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -784,7 +780,7 @@ impl ChessBoard {
         }
 
         // decreasing file
-        for file in self.file_iter(from_index.file()).rev().skip(1) {
+        for file in FileIter::start_at(from_index.file()).rev().skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
                 Some(target_piece) => {
@@ -800,9 +796,8 @@ impl ChessBoard {
         }
 
         // increasing file, increasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
-            .zip(self.rank_iter(from_index.rank()))
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
+            .zip(RankIter::start_at(from_index.rank()))
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -818,9 +813,8 @@ impl ChessBoard {
         }
 
         // increasing file, decreasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
-            .zip(self.rank_iter(from_index.rank()).rev())
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
+            .zip(RankIter::start_at(from_index.rank()).rev())
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -836,10 +830,9 @@ impl ChessBoard {
         }
 
         // decreasing file, increasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
             .rev()
-            .zip(self.rank_iter(from_index.rank()))
+            .zip(RankIter::start_at(from_index.rank()))
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -855,10 +848,9 @@ impl ChessBoard {
         }
 
         // decreasing file, decreasing rank
-        for (to_file, to_rank) in self
-            .file_iter(from_index.file())
+        for (to_file, to_rank) in FileIter::start_at(from_index.file())
             .rev()
-            .zip(self.rank_iter(from_index.rank()).rev())
+            .zip(RankIter::start_at(from_index.rank()).rev())
             .skip(1)
         {
             let to_index = ChessIndex::new(to_file, to_rank);
@@ -874,14 +866,6 @@ impl ChessBoard {
         }
 
         moves
-    }
-
-    fn rank_iter(&self, rank: Rank) -> RankIter {
-        RankIter::new(rank)
-    }
-
-    fn file_iter(&self, file: File) -> FileIter {
-        FileIter::new(file)
     }
 
     pub fn move_piece<T>(&mut self, from: T, to: T) -> Result<Option<Piece>, MovePieceError>

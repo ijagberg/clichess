@@ -1,6 +1,7 @@
 mod modes;
 
 use game::*;
+use modes::PlayLocalOpts;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -13,9 +14,6 @@ struct Opts {
 enum Command {
     PlayLocal(PlayLocalOpts),
 }
-
-#[derive(Debug, StructOpt)]
-pub struct PlayLocalOpts {}
 
 fn main() {
     let opts: Opts = Opts::from_args();
@@ -31,9 +29,9 @@ fn main() {
 fn print_whites_perspective(board: &ChessBoard) {
     println!("---");
     let mut lines = Vec::new();
-    for rank in RankIter::new(Rank::First) {
+    for rank in RankIter::start_at(Rank::First) {
         let mut pieces = Vec::new();
-        for file in FileIter::new(File::A) {
+        for file in FileIter::start_at(File::A) {
             let chess_index = ChessIndex::from((file, rank));
             let output = match board[chess_index].piece() {
                 Some(p) => format!("{}", p),
@@ -52,9 +50,9 @@ fn print_whites_perspective(board: &ChessBoard) {
 fn print_blacks_perspective(board: &ChessBoard) {
     println!("---");
     let mut lines = Vec::new();
-    for rank in RankIter::new(Rank::First) {
+    for rank in RankIter::start_at(Rank::First) {
         let mut pieces = Vec::new();
-        for file in FileIter::new(File::H).rev() {
+        for file in FileIter::start_at(File::H).rev() {
             let chess_index = ChessIndex::from((file, rank));
             let output = match board[chess_index].piece() {
                 Some(p) => format!("{}", p),

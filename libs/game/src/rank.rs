@@ -4,6 +4,7 @@ use std::{
     ops::{Add, Sub},
 };
 
+/// A chess rank (horizontal line)
 #[derive(Debug, Copy, PartialEq, Clone, Eq)]
 pub enum Rank {
     First,
@@ -109,12 +110,29 @@ impl From<&Rank> for u8 {
     }
 }
 
+/// An iterator over ranks
+///
+/// By default it iterates in increasing order (`First` -> `Second`, `Second` -> `Third`)
 pub struct RankIter {
     current: u8,
 }
 
 impl RankIter {
-    pub fn new(start: Rank) -> Self {
+    /// Start a new `RankIter` at `start`
+    /// 
+    /// # Example
+    /// ```
+    /// use game::{Rank, RankIter};
+    /// 
+    /// let mut rank_iter = RankIter::start_at(Rank::First);
+    /// assert_eq!(rank_iter.next(), Some(Rank::First));
+    /// assert_eq!(rank_iter.next(), Some(Rank::Second));
+    ///
+    /// let mut rank_iter = RankIter::start_at(Rank::Eighth);
+    /// assert_eq!(rank_iter.next(), Some(Rank::Eighth));
+    /// assert_eq!(rank_iter.next(), None);
+    /// ```
+    pub fn start_at(start: Rank) -> Self {
         Self {
             current: u8::from(&start),
         }
@@ -153,7 +171,7 @@ mod tests {
     #[test]
     fn test_rank_iter() {
         assert_eq!(
-            RankIter::new(Rank::First).collect::<Vec<_>>(),
+            RankIter::start_at(Rank::First).collect::<Vec<_>>(),
             vec![
                 Rank::First,
                 Rank::Second,
@@ -167,7 +185,7 @@ mod tests {
         );
 
         assert_eq!(
-            RankIter::new(Rank::Third,).collect::<Vec<_>>(),
+            RankIter::start_at(Rank::Third,).collect::<Vec<_>>(),
             vec![
                 Rank::Third,
                 Rank::Fourth,
@@ -179,7 +197,7 @@ mod tests {
         );
 
         assert_eq!(
-            RankIter::new(Rank::Fourth).rev().collect::<Vec<_>>(),
+            RankIter::start_at(Rank::Fourth).rev().collect::<Vec<_>>(),
             vec![Rank::Fourth, Rank::Third, Rank::Second, Rank::First]
         );
     }

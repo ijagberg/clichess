@@ -1,3 +1,3 @@
-pub use local::PlayLocal;
+pub use local::{PlayLocal, PlayLocalOpts};
 
 mod local;

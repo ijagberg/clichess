@@ -4,6 +4,7 @@ use std::{
     ops::{Add, Sub},
 };
 
+/// A chess file (vertical line)
 #[derive(Debug, Copy, PartialEq, Clone, Eq)]
 pub enum File {
     A,
@@ -131,7 +132,21 @@ pub struct FileIter {
 }
 
 impl FileIter {
-    pub fn new(start: File) -> Self {
+    /// Start a new `FileIter` at `start`
+    /// 
+    /// # Example
+    /// ```
+    /// use game::{File, FileIter};
+    /// 
+    /// let mut file_iter = FileIter::start_at(File::A);
+    /// assert_eq!(file_iter.next(), Some(File::A));
+    /// assert_eq!(file_iter.next(), Some(File::B));
+    ///
+    /// let mut file_iter = FileIter::start_at(File::H);
+    /// assert_eq!(file_iter.next(), Some(File::H));
+    /// assert_eq!(file_iter.next(), None);
+    /// ```
+    pub fn start_at(start: File) -> Self {
         Self {
             current: u8::from(&start),
         }
@@ -170,7 +185,7 @@ mod tests {
     #[test]
     fn test_file_iter() {
         assert_eq!(
-            FileIter::new(File::A).collect::<Vec<_>>(),
+            FileIter::start_at(File::A).collect::<Vec<_>>(),
             vec![
                 File::A,
                 File::B,
@@ -184,12 +199,12 @@ mod tests {
         );
 
         assert_eq!(
-            FileIter::new(File::C).collect::<Vec<_>>(),
+            FileIter::start_at(File::C).collect::<Vec<_>>(),
             vec![File::C, File::D, File::E, File::F, File::G, File::H]
         );
 
         assert_eq!(
-            FileIter::new(File::D).rev().collect::<Vec<_>>(),
+            FileIter::start_at(File::D).rev().collect::<Vec<_>>(),
             vec![File::D, File::C, File::B, File::A]
         );
     }
