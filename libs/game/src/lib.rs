@@ -2,6 +2,7 @@
 
 mod chess_board;
 mod chess_move;
+mod consts;
 mod file;
 mod rank;
 mod square;
@@ -29,6 +30,48 @@ impl Piece {
 
     pub fn color(&self) -> Color {
         self.color
+    }
+
+    pub fn is_pawn(&self) -> bool {
+        match self.piece_type() {
+            PieceType::Pawn => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_knight(&self) -> bool {
+        match self.piece_type() {
+            PieceType::Knight => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_rook(&self) -> bool {
+        match self.piece_type() {
+            PieceType::Rook => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_bishop(&self) -> bool {
+        match self.piece_type() {
+            PieceType::Bishop => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_queen(&self) -> bool {
+        match self.piece_type() {
+            PieceType::Queen => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_king(&self) -> bool {
+        match self.piece_type() {
+            PieceType::King => true,
+            _ => false,
+        }
     }
 
     pub fn pawn(color: Color) -> Self {
@@ -87,6 +130,15 @@ pub enum Color {
     White,
 }
 
+impl Color {
+    pub fn opponent(&self) -> Color {
+        match self {
+            Color::Black => Color::White,
+            Color::White => Color::Black,
+        }
+    }
+}
+
 impl Display for Color {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
@@ -119,26 +171,23 @@ impl Display for Piece {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub struct ChessIndex {
-    file: File,
-    rank: Rank,
-}
+pub struct ChessIndex(File, Rank);
 
 impl ChessIndex {
     pub fn new(file: File, rank: Rank) -> Self {
-        Self { rank, file }
+        Self(file, rank)
     }
 
     fn linear_value(&self) -> usize {
-        (8 * (i32::from(&self.rank) - 1) + (i32::from(&self.file) - 1)) as usize
+        (8 * (i32::from(&self.rank()) - 1) + (i32::from(&self.file()) - 1)) as usize
     }
 
     pub fn rank(&self) -> Rank {
-        self.rank
+        self.1
     }
 
     pub fn file(&self) -> File {
-        self.file
+        self.0
     }
 }
 
@@ -179,7 +228,7 @@ impl FromStr for ChessIndex {
 
 impl Display for ChessIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.file, self.rank)
+        write!(f, "{}{}", self.file(), self.rank())
     }
 }
 

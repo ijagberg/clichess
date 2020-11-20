@@ -1,5 +1,5 @@
 use crate::{
-    file::FileIter, rank::RankIter, square::Square, ChessIndex, Color, File, Move, Piece,
+    consts, file::FileIter, rank::RankIter, square::Square, ChessIndex, Color, File, Move, Piece,
     PieceType, Rank,
 };
 use std::{
@@ -10,10 +10,60 @@ use std::{
 };
 
 pub struct ChessBoard {
+    white_king: ChessIndex,
+    black_king: ChessIndex,
     squares: [Square; 64],
 }
 
 impl ChessBoard {
+    pub fn is_checked(&self, color: Color) -> bool {
+        let opponent_color = color.opponent();
+        let king = self.get_king(color).expect(&format!(
+            "no {} king exists",
+            color.to_string().to_lowercase()
+        ));
+        let king_index = match color {
+            Color::Black => self.black_king,
+            Color::White => self.white_king,
+        };
+
+        // check if there is an opponent knight a knight's move away
+        let offsets = vec![
+            (2, 1),
+            (2, -1),
+            (-2, 1),
+            (-2, -1),
+            (1, 2),
+            (1, -2),
+            (-1, 2),
+            (-1, -2),
+        ];
+
+        for (file_offset, rank_offset) in offsets {
+            if let Ok(to_index) = ChessIndex::try_from((
+                i32::from(&king_index.file()) + file_offset,
+                i32::from(&king_index.rank()) + rank_offset,
+            )) {
+                if self[to_index]
+                    .piece()
+                    .map(|p| p.color() == piece_color)
+                    .unwrap_or(false)
+                {
+                    continue;
+                }
+                moves.push(Move::new(knight, from_index, to_index, &self));
+            }
+        }
+        moves
+    }
+
+    fn get_king(&self, color: Color) -> Option<&Piece> {
+        match color {
+            Color::Black => self[self.black_king].piece(),
+            Color::White => self[self.white_king].piece(),
+        }
+    }
+
     pub fn valid_moves_from(&self, index: ChessIndex) -> Vec<Move> {
         let piece = match self[index].piece() {
             Some(p) => p,
@@ -125,8 +175,8 @@ impl ChessBoard {
 
         for (file_offset, rank_offset) in offsets {
             if let Ok(to_index) = ChessIndex::try_from((
-                i32::from(&from_index.file) + file_offset,
-                i32::from(&from_index.rank) + rank_offset,
+                i32::from(&from_index.file()) + file_offset,
+                i32::from(&from_index.rank()) + rank_offset,
             )) {
                 if self[to_index]
                     .piece()
@@ -147,9 +197,9 @@ impl ChessBoard {
 
         // increasing file, increasing rank
         for (to_file, to_rank) in self
-            .file_iter(from_index.file)
+            .file_iter(from_index.file())
             .skip(1)
-            .zip(self.rank_iter(from_index.rank).skip(1))
+            .zip(self.rank_iter(from_index.rank()).skip(1))
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
@@ -165,9 +215,9 @@ impl ChessBoard {
 
         // increasing file, decreasing rank
         for (to_file, to_rank) in self
-            .file_iter(from_index.file)
+            .file_iter(from_index.file())
             .skip(1)
-            .zip(self.rank_iter(from_index.rank).rev().skip(1))
+            .zip(self.rank_iter(from_index.rank()).rev().skip(1))
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
@@ -183,10 +233,10 @@ impl ChessBoard {
 
         // decreasing file, increasing rank
         for (to_file, to_rank) in self
-            .file_iter(from_index.file)
+            .file_iter(from_index.file())
             .rev()
             .skip(1)
-            .zip(self.rank_iter(from_index.rank).skip(1))
+            .zip(self.rank_iter(from_index.rank()).skip(1))
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
@@ -202,10 +252,10 @@ impl ChessBoard {
 
         // decreasing file, decreasing rank
         for (to_file, to_rank) in self
-            .file_iter(from_index.file)
+            .file_iter(from_index.file())
             .rev()
             .skip(1)
-            .zip(self.rank_iter(from_index.rank).rev().skip(1))
+            .zip(self.rank_iter(from_index.rank()).rev().skip(1))
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
@@ -374,7 +424,12 @@ impl Default for ChessBoard {
             Square::occupied(Color::White, Piece::knight(Color::Black)), // g8
             Square::occupied(Color::Black, Piece::rook(Color::Black)), // h8
         ];
-        Self { squares: board }
+
+        Self {
+            squares: board,
+            white_king: consts::E1,
+            black_king: consts::E8,
+        }
     }
 }
 
