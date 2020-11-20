@@ -197,6 +197,70 @@ impl ChessBoard {
         None
     }
 
+    fn is_checked_by_rook(&self, king_index: ChessIndex, king_color: Color) -> Option<ChessIndex> {
+        let opponent_color = king_color.opponent();
+
+        // increasing file
+        for idx in FileIter::new(king_index.file())
+            .map(|file| ChessIndex::new(file, king_index.rank()))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_rook() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing file
+        for idx in FileIter::new(king_index.file())
+            .rev()
+            .map(|file| ChessIndex::new(file, king_index.rank()))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_rook() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // increasing rank
+        for idx in RankIter::new(king_index.rank())
+            .map(|rank| ChessIndex::new(king_index.file(), rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_rook() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing rank
+        for idx in RankIter::new(king_index.rank())
+            .rev()
+            .map(|rank| ChessIndex::new(king_index.file(), rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_rook() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        None
+    }
+
     fn get_king(&self, color: Color) -> Option<&Piece> {
         match color {
             Color::Black => self[self.black_king].piece(),
@@ -676,5 +740,19 @@ mod tests {
 
         board.move_piece(F2, F5).unwrap();
         assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
+    }
+
+    #[test]
+    fn test_is_checked_by_rook() {
+        let mut board = ChessBoard::default();
+
+        board.move_piece(E1, E4).unwrap();
+        assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
+
+        board.move_piece(H8, H4).unwrap();
+        assert_eq!(board.is_checked_by_rook(E4, Color::White), Some(H4));
+
+        board.move_piece(G2, G4).unwrap();
+        assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
     }
 }
