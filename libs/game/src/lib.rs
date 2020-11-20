@@ -179,7 +179,7 @@ impl ChessIndex {
     }
 
     fn linear_value(&self) -> usize {
-        (8 * (i32::from(&self.rank()) - 1) + (i32::from(&self.file()) - 1)) as usize
+        (8 * (u8::from(&self.rank()) - 1) + (u8::from(&self.file()) - 1)) as usize
     }
 
     pub fn rank(&self) -> Rank {
@@ -200,6 +200,8 @@ impl From<(File, Rank)> for ChessIndex {
 impl TryFrom<(i32, i32)> for ChessIndex {
     type Error = ();
     fn try_from((file, rank): (i32, i32)) -> Result<Self, Self::Error> {
+        let file = u8::try_from(file).map_err(|_| ())?;
+        let rank = u8::try_from(rank).map_err(|_| ())?;
         match (File::try_from(file), Rank::try_from(rank)) {
             (Ok(f), Ok(r)) => Ok(ChessIndex::new(f, r)),
             _ => Err(()),

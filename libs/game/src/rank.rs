@@ -1,4 +1,8 @@
-use std::{convert::TryFrom, fmt::Display};
+use std::{
+    convert::TryFrom,
+    fmt::Display,
+    ops::{Add, Sub},
+};
 
 #[derive(Debug, Copy, PartialEq, Clone, Eq)]
 pub enum Rank {
@@ -12,15 +16,45 @@ pub enum Rank {
     Eighth,
 }
 
+impl Add<u8> for Rank {
+    type Output = Option<Rank>;
+
+    fn add(self, rhs: u8) -> Self::Output {
+        let mut v = u8::from(&self);
+
+        v += rhs;
+
+        match Rank::try_from(v) {
+            Ok(f) => Some(f),
+            Err(_) => None,
+        }
+    }
+}
+
+impl Sub<u8> for Rank {
+    type Output = Option<Rank>;
+
+    fn sub(self, rhs: u8) -> Self::Output {
+        let mut v = u8::from(&self);
+
+        v = v.checked_sub(rhs)?;
+
+        match Rank::try_from(v) {
+            Ok(f) => Some(f),
+            Err(_) => None,
+        }
+    }
+}
+
 impl Display for Rank {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", i32::from(self))
+        write!(f, "{}", u8::from(self))
     }
 }
 
 impl PartialOrd for Rank {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        i32::from(self).partial_cmp(&i32::from(other))
+        u8::from(self).partial_cmp(&u8::from(other))
     }
 }
 
@@ -42,9 +76,9 @@ impl TryFrom<char> for Rank {
     }
 }
 
-impl TryFrom<i32> for Rank {
+impl TryFrom<u8> for Rank {
     type Error = ();
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         let output = match value {
             1 => Rank::First,
             2 => Rank::Second,
@@ -60,7 +94,7 @@ impl TryFrom<i32> for Rank {
     }
 }
 
-impl From<&Rank> for i32 {
+impl From<&Rank> for u8 {
     fn from(rank: &Rank) -> Self {
         match rank {
             Rank::First => 1,
@@ -76,13 +110,13 @@ impl From<&Rank> for i32 {
 }
 
 pub struct RankIter {
-    current: i32,
+    current: u8,
 }
 
 impl RankIter {
     pub fn new(start: Rank) -> Self {
         Self {
-            current: i32::from(&start),
+            current: u8::from(&start),
         }
     }
 }

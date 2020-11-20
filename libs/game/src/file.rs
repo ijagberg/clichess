@@ -1,4 +1,8 @@
-use std::{convert::TryFrom, fmt::Display};
+use std::{
+    convert::TryFrom,
+    fmt::Display,
+    ops::{Add, Sub},
+};
 
 #[derive(Debug, Copy, PartialEq, Clone, Eq)]
 pub enum File {
@@ -12,6 +16,36 @@ pub enum File {
     H,
 }
 
+impl Add<u8> for File {
+    type Output = Option<File>;
+
+    fn add(self, rhs: u8) -> Self::Output {
+        let mut v = u8::from(&self);
+
+        v += rhs;
+
+        match File::try_from(v) {
+            Ok(f) => Some(f),
+            Err(_) => None,
+        }
+    }
+}
+
+impl Sub<u8> for File {
+    type Output = Option<File>;
+
+    fn sub(self, rhs: u8) -> Self::Output {
+        let mut v = u8::from(&self);
+
+        v = v.checked_sub(rhs)?;
+
+        match File::try_from(v) {
+            Ok(f) => Some(f),
+            Err(_) => None,
+        }
+    }
+}
+
 impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = char::from(self);
@@ -21,7 +55,7 @@ impl Display for File {
 
 impl PartialOrd for File {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        i32::from(self).partial_cmp(&i32::from(other))
+        u8::from(self).partial_cmp(&u8::from(other))
     }
 }
 
@@ -59,9 +93,9 @@ impl TryFrom<char> for File {
     }
 }
 
-impl TryFrom<i32> for File {
+impl TryFrom<u8> for File {
     type Error = ();
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         let output = match value {
             1 => File::A,
             2 => File::B,
@@ -77,7 +111,7 @@ impl TryFrom<i32> for File {
     }
 }
 
-impl From<&File> for i32 {
+impl From<&File> for u8 {
     fn from(file: &File) -> Self {
         match file {
             File::A => 1,
@@ -93,13 +127,13 @@ impl From<&File> for i32 {
 }
 
 pub struct FileIter {
-    current: i32,
+    current: u8,
 }
 
 impl FileIter {
     pub fn new(start: File) -> Self {
         Self {
-            current: i32::from(&start),
+            current: u8::from(&start),
         }
     }
 }
@@ -158,5 +192,18 @@ mod tests {
             FileIter::new(File::D).rev().collect::<Vec<_>>(),
             vec![File::D, File::C, File::B, File::A]
         );
+    }
+
+    #[test]
+    fn test_add() {
+        assert_eq!(File::A + 1, Some(File::B));
+        assert_eq!(File::A + 2, Some(File::C));
+        assert_eq!(File::A + 10, None);
+    }
+
+    #[test]
+    fn test_sub() {
+        assert_eq!(File::A - 1, None);
+        assert_eq!(File::B - 1, Some(File::A));
     }
 }
