@@ -1,5 +1,6 @@
 use crate::{
-    file::FileIter, rank::RankIter, ChessIndex, Color, File, Move, Piece, PieceType, Rank, Square,
+    file::FileIter, rank::RankIter, square::Square, ChessIndex, Color, File, Move, Piece,
+    PieceType, Rank,
 };
 use std::{
     convert::TryFrom,
@@ -237,36 +238,28 @@ impl ChessBoard {
         let to: ChessIndex = to.into();
 
         // check if there is actually a piece at from
-        let from_piece = match self[from].piece {
+        let from_piece = match self[from].piece() {
             Some(p) => p,
             None => return Err(MovePieceError::NoPieceToMove),
         };
 
-        if self[to]
-            .piece()
-            .map(|p| p.color() == from_piece.color())
-            .unwrap_or(false)
-        {
-            return Err(MovePieceError::OwnPieceAtTarget);
-        }
+        match self[to].piece() {
+            Some(&other_piece) if other_piece.color() != from_piece.color() => {
+                // there is an opponent piece at the target square
+                // replace the other piece
+                let from_piece = self[from].take_piece().unwrap(); // can call unwrap here because we matched on `piece()` above
+                let old_piece = self[to].set_piece(from_piece).unwrap(); // --||--;
 
-        let to_square = &mut self[to];
-        match to_square.piece {
-            Some(other_piece) => {
-                if from_piece.color != other_piece.color {
-                    // replace the other piece
-                    to_square.set_piece(from_piece);
-
-                    self[from].piece = None;
-                    Ok(Some(other_piece))
-                } else {
-                    Err(MovePieceError::OwnPieceAtTarget)
-                }
+                Ok(Some(old_piece))
+            }
+            Some(_other_piece) => {
+                // there is a piece of the same color at the target square
+                Err(MovePieceError::OwnPieceAtTarget)
             }
             None => {
-                to_square.set_piece(from_piece);
-                self[from].piece = None;
-
+                // there is no piece at the target square
+                let from_piece = self[from].take_piece().unwrap();
+                self[to].set_piece(from_piece);
                 Ok(None)
             }
         }

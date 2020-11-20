@@ -4,11 +4,12 @@ mod chess_board;
 mod chess_move;
 mod file;
 mod rank;
+mod square;
 
 pub use chess_board::ChessBoard;
 pub use chess_move::Move;
-pub use file::File;
-pub use rank::Rank;
+pub use file::{File, FileIter};
+pub use rank::{Rank, RankIter};
 use std::{convert::TryFrom, error::Error, fmt::Display, str::FromStr};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -141,6 +142,12 @@ impl ChessIndex {
     }
 }
 
+impl From<(File, Rank)> for ChessIndex {
+    fn from((file, rank): (File, Rank)) -> Self {
+        ChessIndex::new(file, rank)
+    }
+}
+
 impl TryFrom<(i32, i32)> for ChessIndex {
     type Error = ();
     fn try_from((file, rank): (i32, i32)) -> Result<Self, Self::Error> {
@@ -196,39 +203,3 @@ impl Display for ParseChessIndexError {
 }
 
 impl Error for ParseChessIndexError {}
-
-impl From<(File, Rank)> for ChessIndex {
-    fn from((file, rank): (File, Rank)) -> Self {
-        Self::new(file, rank)
-    }
-}
-
-pub struct Square {
-    color: Color,
-    piece: Option<Piece>,
-}
-
-impl Square {
-    pub fn piece(&self) -> Option<&Piece> {
-        match &self.piece {
-            Some(p) => Some(p),
-            None => None,
-        }
-    }
-
-    pub fn empty(color: Color) -> Self {
-        Self::new(color, None)
-    }
-
-    pub fn occupied(color: Color, piece: Piece) -> Self {
-        Self::new(color, Some(piece))
-    }
-
-    pub fn new(color: Color, piece: Option<Piece>) -> Self {
-        Self { color, piece }
-    }
-
-    pub fn set_piece(&mut self, piece: Piece) {
-        self.piece = Some(piece);
-    }
-}
