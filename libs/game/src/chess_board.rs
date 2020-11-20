@@ -41,6 +41,14 @@ impl ChessBoard {
             return true;
         }
 
+        if let Some(_rook_idx) = self.is_checked_by_rook(king_index, king_color) {
+            return true;
+        }
+
+        if let Some(_queen_idx) = self.is_checked_by_queen(king_index, king_color) {
+            return true;
+        }
+
         false
     }
 
@@ -112,6 +120,7 @@ impl ChessBoard {
                 }
             }
         }
+
         None
     }
 
@@ -251,6 +260,132 @@ impl ChessBoard {
         {
             if let Some(p) = self[idx].piece() {
                 if p.is_rook() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        None
+    }
+
+    fn is_checked_by_queen(&self, king_index: ChessIndex, king_color: Color) -> Option<ChessIndex> {
+        let opponent_color = king_color.opponent();
+
+        // increasing file
+        for idx in FileIter::new(king_index.file())
+            .map(|file| ChessIndex::new(file, king_index.rank()))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing file
+        for idx in FileIter::new(king_index.file())
+            .rev()
+            .map(|file| ChessIndex::new(file, king_index.rank()))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // increasing rank
+        for idx in RankIter::new(king_index.rank())
+            .map(|rank| ChessIndex::new(king_index.file(), rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing rank
+        for idx in RankIter::new(king_index.rank())
+            .rev()
+            .map(|rank| ChessIndex::new(king_index.file(), rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // increasing file, increasing rank
+        for idx in FileIter::new(king_index.file())
+            .zip(RankIter::new(king_index.rank()))
+            .map(|(file, rank)| ChessIndex::new(file, rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // increasing file, decreasing rank
+        for idx in FileIter::new(king_index.file())
+            .zip(RankIter::new(king_index.rank()).rev())
+            .map(|(file, rank)| ChessIndex::new(file, rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing file, increasing rank
+        for idx in FileIter::new(king_index.file())
+            .rev()
+            .zip(RankIter::new(king_index.rank()))
+            .map(|(file, rank)| ChessIndex::new(file, rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
+                    return Some(idx);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // decreasing file, decreasing rank
+        for idx in FileIter::new(king_index.file())
+            .rev()
+            .zip(RankIter::new(king_index.rank()).rev())
+            .map(|(file, rank)| ChessIndex::new(file, rank))
+            .skip(1)
+        {
+            if let Some(p) = self[idx].piece() {
+                if p.is_queen() && p.color() == opponent_color {
                     return Some(idx);
                 } else {
                     break;
@@ -754,5 +889,22 @@ mod tests {
 
         board.move_piece(G2, G4).unwrap();
         assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
+    }
+
+    #[test]
+    fn test_is_checked_by_queen() {
+        let mut board = ChessBoard::default();
+
+        board.move_piece(E1, E4).unwrap();
+        assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
+        
+        board.move_piece(D8, C6).unwrap();
+        assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(C6));
+        
+        board.move_piece(C6, B4).unwrap();
+        assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(B4));
+        
+        board.move_piece(C1, D4).unwrap();
+        assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
     }
 }
