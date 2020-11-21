@@ -17,6 +17,18 @@ pub enum File {
     H,
 }
 
+impl Ord for File {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        u8::from(self).cmp(&u8::from(other))
+    }
+}
+
+impl PartialOrd for File {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
 impl Add<u8> for File {
     type Output = Option<File>;
 
@@ -51,12 +63,6 @@ impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = char::from(self);
         write!(f, "{}", output)
-    }
-}
-
-impl PartialOrd for File {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        u8::from(self).partial_cmp(&u8::from(other))
     }
 }
 
@@ -133,11 +139,11 @@ pub struct FileIter {
 
 impl FileIter {
     /// Start a new `FileIter` at `start`
-    /// 
+    ///
     /// # Example
     /// ```
     /// use game::{File, FileIter};
-    /// 
+    ///
     /// let mut file_iter = FileIter::start_at(File::A);
     /// assert_eq!(file_iter.next(), Some(File::A));
     /// assert_eq!(file_iter.next(), Some(File::B));

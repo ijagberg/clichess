@@ -4,17 +4,16 @@ mod chess_board;
 mod chess_move;
 mod consts;
 mod file;
+mod piece;
 mod rank;
 mod square;
-mod piece;
 
 pub use chess_board::ChessBoard;
 pub use chess_move::Move;
 pub use file::{File, FileIter};
-pub use rank::{Rank, RankIter};
 pub use piece::*;
+pub use rank::{Rank, RankIter};
 use std::{convert::TryFrom, error::Error, fmt::Display, str::FromStr};
-
 
 #[derive(PartialEq, Clone, Copy, Debug, Eq)]
 pub enum Color {
@@ -60,6 +59,48 @@ impl ChessIndex {
 
     pub fn file(&self) -> File {
         self.0
+    }
+
+    pub fn indices_between<T>(from: T, to: T) -> Vec<ChessIndex>
+    where
+        ChessIndex: From<T>,
+    {
+        let from: ChessIndex = from.into();
+        let to: ChessIndex = to.into();
+
+        if from.file() == to.file() {
+            let file = from.file();
+            // iterate horizontally
+            if from.rank() <= to.rank() {
+                return RankIter::start_at(from.rank())
+                    .take_while(|r| r <= &to.rank())
+                    .map(|r| ChessIndex::new(file, r))
+                    .collect();
+            } else {
+                return RankIter::start_at(from.rank())
+                    .rev()
+                    .take_while(|r| r >= &to.rank())
+                    .map(|r| ChessIndex::new(file, r))
+                    .collect();
+            }
+        } else if from.rank() == to.rank() {
+            let rank = from.rank();
+            // iterate vertically
+            if from.file() <= to.file() {
+                return FileIter::start_at(from.file())
+                    .take_while(|f| f <= &to.file())
+                    .map(|f| ChessIndex::new(f, rank))
+                    .collect();
+            } else {
+                return FileIter::start_at(from.file())
+                    .rev()
+                    .take_while(|f| f >= &to.file())
+                    .map(|f| ChessIndex::new(f, rank))
+                    .collect();
+            }
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -126,3 +167,21 @@ impl Display for ParseChessIndexError {
 }
 
 impl Error for ParseChessIndexError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use consts::*;
+
+    #[test]
+    fn test_indices_between() {
+        assert_eq!(ChessIndex::indices_between(E4, E7), vec![E4, E5, E6, E7]);
+        assert_eq!(ChessIndex::indices_between(E7, E4), vec![E7, E6, E5, E4]);
+        assert_eq!(ChessIndex::indices_between(E4, F3), vec![]);
+        assert_eq!(ChessIndex::indices_between(A1, D1), vec![A1, B1, C1, D1]);
+        assert_eq!(
+            ChessIndex::indices_between(E1, A1),
+            vec![E1, D1, C1, B1, A1]
+        );
+    }
+}

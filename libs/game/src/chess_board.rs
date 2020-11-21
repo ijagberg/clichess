@@ -17,40 +17,36 @@ pub struct ChessBoard {
 }
 
 impl ChessBoard {
-    pub fn is_checked(&self, color: Color) -> bool {
-        let king_color = self
-            .get_king(color)
-            .expect(&format!(
-                "no {} king exists",
-                color.to_string().to_lowercase()
-            ))
-            .color();
-        let king_index = match color {
-            Color::Black => self.black_king,
-            Color::White => self.white_king,
-        };
-
-        if let Some(_knight_idx) = self.is_checked_by_knight(king_index, king_color) {
+    /// Check if a square is in check
+    pub fn is_checked(&self, index: ChessIndex, color: Color) -> bool {
+        if let Some(_knight_idx) = self.is_checked_by_knight(index, color) {
             return true;
         }
 
-        if let Some(_pawn_idx) = self.is_checked_by_pawn(king_index, king_color) {
+        if let Some(_pawn_idx) = self.is_checked_by_pawn(index, color) {
             return true;
         }
 
-        if let Some(_bishop_idx) = self.is_checked_by_bishop(king_index, king_color) {
+        if let Some(_bishop_idx) = self.is_checked_by_bishop(index, color) {
             return true;
         }
 
-        if let Some(_rook_idx) = self.is_checked_by_rook(king_index, king_color) {
+        if let Some(_rook_idx) = self.is_checked_by_rook(index, color) {
             return true;
         }
 
-        if let Some(_queen_idx) = self.is_checked_by_queen(king_index, king_color) {
+        if let Some(_queen_idx) = self.is_checked_by_queen(index, color) {
             return true;
         }
 
         false
+    }
+
+    pub fn is_king_checked(&self, color: Color) -> bool {
+        match color {
+            Color::Black => self.is_checked(self.black_king, color),
+            Color::White => self.is_checked(self.white_king, color),
+        }
     }
 
     fn is_checked_by_bishop(
@@ -427,7 +423,7 @@ impl ChessBoard {
             let piece_at_target = clone
                 .execute_move(valid_move)
                 .expect(&format!("invalid move attempted: '{:?}'", valid_move));
-            if clone.is_checked(piece_color) {
+            if clone.is_king_checked(piece_color) {
                 // can't actually make this move
             } else {
                 actual_valid_moves.push(valid_move);
@@ -456,6 +452,52 @@ impl ChessBoard {
     pub fn is_move_valid(&self, chess_move: Move) -> bool {
         let valid_moves_from = self.valid_moves_from(chess_move.from_index());
         valid_moves_from.contains(&chess_move)
+    }
+
+    fn can_castle(
+        &self,
+        king_index: ChessIndex,
+        rook_index: ChessIndex,
+    ) -> Result<(), CanCastleError> {
+        let (king, rook) = match (self[king_index].piece(), self[rook_index].piece()) {
+            (Some(king), Some(rook))
+                if king.is_king() && rook.is_rook() && king.color() == rook.color() =>
+            {
+                (king, rook)
+            }
+            _ => {
+                // either there is no piece at `king_index` or the piece is not a king
+                return Err(CanCastleError::WrongPieces);
+            }
+        };
+
+        let color = king.color();
+
+        if !king.history().is_empty() || !rook.history().is_empty() {
+            // the king or rook has made some move before, can't castle
+            return Err(CanCastleError::PieceHasMadeMove);
+        }
+
+        // check that squares between the king and rook are empty and not in check
+        let indices_between = ChessIndex::indices_between(king_index, rook_index);
+        debug_assert!(
+            indices_between.len() == 4 || indices_between.len() == 5,
+            format!("{:?}", (indices_between.len(), king_index, rook_index))
+        );
+        for index_in_between in indices_between {
+            if index_in_between != king_index
+                && index_in_between != rook_index
+                && self[index_in_between].piece().is_some()
+            {
+                // square between the king and rook is not empty
+                return Err(CanCastleError::PiecesBetween);
+            }
+            if self.is_checked(index_in_between, color) {
+                return Err(CanCastleError::SquareInCheck(index_in_between));
+            }
+        }
+
+        Ok(())
     }
 
     fn valid_king_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
@@ -931,6 +973,35 @@ impl ChessBoard {
     }
 }
 
+#[derive(Debug, PartialEq)]
+enum CanCastleError {
+    WrongPieces,
+    SquareInCheck(ChessIndex),
+    PiecesBetween,
+    PieceHasMadeMove,
+}
+
+impl Display for CanCastleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            CanCastleError::SquareInCheck(idx) => {
+                format!("can't castle because {} is in check", idx)
+            }
+            CanCastleError::WrongPieces => {
+                format!("can't castle because at least one of the given squares was wrong")
+            }
+            CanCastleError::PiecesBetween => {
+                format!("can't castle because there are pieces between the king and rook")
+            }
+            CanCastleError::PieceHasMadeMove => {
+                format!("can't castle because the king or rook has already moved")
+            }
+        };
+
+        write!(f, "{}", output)
+    }
+}
+
 #[derive(Debug)]
 pub enum MovePieceError {
     NoPieceToMove,
@@ -1308,5 +1379,34 @@ mod tests {
             board[E4].piece().unwrap().history(),
             &vec![Move::new(E2, E3), Move::new(E3, E4)]
         );
+    }
+
+    #[test]
+    fn test_can_castle() {
+        let mut board = ChessBoard::default();
+
+        assert_eq!(board.can_castle(E1, H1), Err(CanCastleError::PiecesBetween)); // can't castle because there are pieces between
+        assert_eq!(board.can_castle(E1, A1), Err(CanCastleError::PiecesBetween)); // can't castle because there are pieces between
+        assert_eq!(board.can_castle(E1, F1), Err(CanCastleError::WrongPieces)); // can't castle because F1 is a bishop
+        assert_eq!(board.can_castle(D1, H1), Err(CanCastleError::WrongPieces)); // can't castle because D1 is a queen
+
+        // move bishop and knight and pawns out of the way
+        board[F1].take_piece();
+        board[G1].take_piece();
+        board[F2].take_piece();
+        board[G2].take_piece();
+
+        // move black rook to check square between white king and white rook
+        board.move_piece(H8, G6).unwrap();
+
+        assert_eq!(
+            board.can_castle(E1, H1),
+            Err(CanCastleError::SquareInCheck(G1))
+        ); // can't castle because G1 is in check
+
+        // move black rook away
+        board[G6].take_piece();
+
+        assert_eq!(board.can_castle(E1, H1), Ok(())); // can castle now
     }
 }
