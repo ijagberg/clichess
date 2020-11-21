@@ -641,68 +641,16 @@ impl ChessBoard {
         let mut moves = Vec::new();
 
         // increasing rank
-        for rank in RankIter::start_at(from_index.rank()).skip(1) {
-            let to_index = ChessIndex::from((from_index.file(), rank));
-            match self[to_index].piece() {
-                Some(p) if p.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, 0, 1, piece_color));
 
         // decreasing rank
-        for rank in RankIter::start_at(from_index.rank()).rev().skip(1) {
-            let to_index = ChessIndex::from((from_index.file(), rank));
-            match self[to_index].piece() {
-                Some(p) if p.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, 0, -1, piece_color));
 
         // increasing file
-        for file in FileIter::start_at(from_index.file()).skip(1) {
-            let to_index = ChessIndex::from((file, from_index.rank()));
-            match self[to_index].piece() {
-                Some(p) if p.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, 1, 0, piece_color));
 
         // decreasing file
-        for file in FileIter::start_at(from_index.file()).rev().skip(1) {
-            let to_index = ChessIndex::from((file, from_index.rank()));
-            match self[to_index].piece() {
-                Some(p) if p.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, -1, 0, piece_color));
 
         moves
     }
@@ -749,233 +697,29 @@ impl ChessBoard {
         let mut moves = Vec::new();
 
         // increasing file, increasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .zip(RankIter::start_at(from_index.rank()))
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, 1, 1, piece_color));
 
         // increasing file, decreasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .zip(RankIter::start_at(from_index.rank()).rev())
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, 1, -1, piece_color));
 
         // decreasing file, increasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .rev()
-            .zip(RankIter::start_at(from_index.rank()))
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, -1, 1, piece_color));
 
         // decreasing file, decreasing rank
-        for index in FileIter::start_at(from_index.file())
-            .rev()
-            .zip(RankIter::start_at(from_index.rank()).rev())
-            .map(|(file, rank)| ChessIndex::new(file, rank))
-            .skip(1)
-        {
-            match self[index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.moves_to_opponents_piece(from_index, -1, -1, piece_color));
 
         moves
     }
 
     fn valid_queen_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
-        // increasing rank
         let mut moves = Vec::new();
-        for rank in RankIter::start_at(from_index.rank()).skip(1) {
-            let to_index = ChessIndex::from((from_index.file(), rank));
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // decreasing rank
-        for rank in RankIter::start_at(from_index.rank()).rev().skip(1) {
-            let to_index = ChessIndex::from((from_index.file(), rank));
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // increasing file
-        for file in FileIter::start_at(from_index.file()).skip(1) {
-            let to_index = ChessIndex::from((file, from_index.rank()));
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // decreasing file
-        for file in FileIter::start_at(from_index.file()).rev().skip(1) {
-            let to_index = ChessIndex::from((file, from_index.rank()));
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // increasing file, increasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .zip(RankIter::start_at(from_index.rank()))
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // increasing file, decreasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .zip(RankIter::start_at(from_index.rank()).rev())
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // decreasing file, increasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .rev()
-            .zip(RankIter::start_at(from_index.rank()))
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // decreasing file, decreasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
-            .rev()
-            .zip(RankIter::start_at(from_index.rank()).rev())
-            .skip(1)
-        {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) if target_piece.color() == piece_color => {
-                    break;
-                }
-                e => {
-                    moves.push(ChessMove::regular(from_index, to_index, e));
-                    if e.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
+        moves.append(&mut self.valid_rook_moves_from(from_index, piece_color));
+        moves.append(&mut self.valid_bishop_moves_from(from_index, piece_color));
 
         moves
     }
 
+    /// Creates and consumes an iterator which steps by the given `file_step` and `rank_step` arguments until some other piece is reached
     fn moves_to_opponents_piece(
         &self,
         start: ChessIndex,
@@ -1540,12 +1284,18 @@ mod tests {
     fn test_execute_castle_move() {
         let mut board = ChessBoard::default();
 
+        print_board("initial", &board);
+
         board[F1].clear();
         board[G1].clear();
+
+        print_board("cleared", &board);
 
         let castle_move = board.can_castle(E1, H1).unwrap();
 
         board.execute_castle_move(castle_move);
+
+        print_board("after", &board);
 
         assert_eq!(board[E1].piece(), None);
         assert_eq!(board[H1].piece(), None);
@@ -1643,5 +1393,11 @@ mod tests {
                 ChessMove::regular(E5, C3, board[C3].piece()),
             ]
         );
+    }
+
+    fn print_board(title: &str, board: &ChessBoard) {
+        println!("{}:", title);
+        println!("{}", board);
+        println!();
     }
 }
