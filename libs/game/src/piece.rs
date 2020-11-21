@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ChessIndex, ChessMove, Color};
+use crate::{ChessIndex, Color};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Piece {
