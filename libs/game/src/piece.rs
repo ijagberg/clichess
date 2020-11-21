@@ -1,16 +1,21 @@
 use std::fmt::Display;
 
-use crate::Color;
+use crate::{ChessIndex, Color};
 
-#[derive(Clone, Copy, PartialEq, Debug, Eq)]
+#[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Piece {
     piece_type: PieceType,
     color: Color,
+    history: Vec<ChessIndex>,
 }
 
 impl Piece {
     pub fn new(piece_type: PieceType, color: Color) -> Self {
-        Self { piece_type, color }
+        Self {
+            piece_type,
+            color,
+            history: Vec::new(),
+        }
     }
 
     pub fn piece_type(&self) -> PieceType {

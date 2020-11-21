@@ -405,43 +405,44 @@ impl ChessBoard {
     }
 
     pub fn valid_moves_from(&self, from_index: ChessIndex) -> Vec<Move> {
-        let piece = match self[from_index].piece() {
+        let mut clone: ChessBoard = self.clone();
+
+        let piece = match clone[from_index].piece() {
             Some(p) => p,
             None => return Vec::new(),
         };
+        let piece_color = piece.color();
 
         let valid_moves = match piece.piece_type() {
             PieceType::Pawn => unimplemented!(),
-            PieceType::Knight => self.valid_knight_moves_from(from_index, piece.color()),
-            PieceType::Bishop => self.valid_bishop_moves_from(from_index, piece.color()),
-            PieceType::Rook => self.valid_rook_moves_from(from_index, piece.color()),
-            PieceType::Queen => self.valid_queen_moves_from(from_index, piece.color()),
-            PieceType::King => self.valid_king_moves_from(from_index, piece.color()),
+            PieceType::Knight => self.valid_knight_moves_from(from_index, piece_color),
+            PieceType::Bishop => self.valid_bishop_moves_from(from_index, piece_color),
+            PieceType::Rook => self.valid_rook_moves_from(from_index, piece_color),
+            PieceType::Queen => self.valid_queen_moves_from(from_index, piece_color),
+            PieceType::King => self.valid_king_moves_from(from_index, piece_color),
         };
 
         let mut actual_valid_moves = Vec::new();
-        let mut clone: ChessBoard = self.clone();
-        for m in valid_moves {
-            let p = clone
-                .execute_move(m)
-                .expect(&format!("invalid move attempted: '{:?}'", m));
-            if clone.is_checked(piece.color()) {
+        for valid_move in valid_moves {
+            let piece_at_target = clone
+                .execute_move(valid_move)
+                .expect(&format!("invalid move attempted: '{:?}'", valid_move));
+            if clone.is_checked(piece_color) {
                 // can't actually make this move
             } else {
-                actual_valid_moves.push(m);
+                actual_valid_moves.push(valid_move);
             }
 
             // undo the move
-            // put the moved piece back
-            clone[from_index].set_piece(*piece);
-            // put the targeted piece back
-            match p {
-                Some(p) => {
-                    clone[m.to_index()].set_piece(p);
-                }
-                None => {
-                    clone[m.to_index()].clear();
-                }
+            // first take the piece we moved back
+            let piece = clone[valid_move.to_index()].take_piece().unwrap(); // can call unwrap here because we successfully executed the move earlier
+
+            // put the moved piece back to the original square
+            clone[from_index].set_piece(piece);
+
+            // if we took some piece by executing the move, put it back
+            if let Some(taken_piece) = piece_at_target {
+                clone[valid_move.to_index()].set_piece(taken_piece);
             }
         }
 
@@ -868,6 +869,10 @@ impl ChessBoard {
         moves
     }
 
+    /// Move a piece from `from` to `to`
+    ///
+    /// # Returns
+    /// A result containing the piece that was taken (if any), or an error describing why the move could not be made
     pub fn move_piece<T>(&mut self, from: T, to: T) -> Result<Option<Piece>, MovePieceError>
     where
         T: Into<ChessIndex>,
@@ -882,7 +887,7 @@ impl ChessBoard {
         };
 
         match self[to].piece() {
-            Some(&other_piece) if other_piece.color() != from_piece.color() => {
+            Some(other_piece) if other_piece.color() != from_piece.color() => {
                 // there is an opponent piece at the target square
                 // replace the other piece
                 let from_piece = self[from].take_piece().unwrap(); // can call unwrap here because we matched on `piece()` above
