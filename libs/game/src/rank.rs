@@ -95,7 +95,31 @@ impl TryFrom<u8> for Rank {
     }
 }
 
+impl TryFrom<i32> for Rank {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        let v_u8 = u8::try_from(value).map_err(|_| ())?;
+        Rank::try_from(v_u8)
+    }
+}
+
 impl From<&Rank> for u8 {
+    fn from(rank: &Rank) -> Self {
+        match rank {
+            Rank::First => 1,
+            Rank::Second => 2,
+            Rank::Third => 3,
+            Rank::Fourth => 4,
+            Rank::Fifth => 5,
+            Rank::Sixth => 6,
+            Rank::Seventh => 7,
+            Rank::Eighth => 8,
+        }
+    }
+}
+
+impl From<&Rank> for i32 {
     fn from(rank: &Rank) -> Self {
         match rank {
             Rank::First => 1,

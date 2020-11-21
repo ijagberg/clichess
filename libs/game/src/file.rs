@@ -118,7 +118,31 @@ impl TryFrom<u8> for File {
     }
 }
 
+impl TryFrom<i32> for File {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        let v_u8 = u8::try_from(value).map_err(|_| ())?;
+        File::try_from(v_u8)
+    }
+}
+
 impl From<&File> for u8 {
+    fn from(file: &File) -> Self {
+        match file {
+            File::A => 1,
+            File::B => 2,
+            File::C => 3,
+            File::D => 4,
+            File::E => 5,
+            File::F => 6,
+            File::G => 7,
+            File::H => 8,
+        }
+    }
+}
+
+impl From<&File> for i32 {
     fn from(file: &File) -> Self {
         match file {
             File::A => 1,

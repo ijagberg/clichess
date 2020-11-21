@@ -976,6 +976,46 @@ impl ChessBoard {
         moves
     }
 
+    fn moves_to_opponents_piece(
+        &self,
+        start: ChessIndex,
+        file_step: i32,
+        rank_step: i32,
+        color: Color,
+    ) -> Vec<ChessMove> {
+        let mut moves = Vec::new();
+        for idx in (0..)
+            .map(|n| {
+                if let (Some(file), Some(rank)) = (
+                    File::try_from(i32::from(&start.file()) + n * file_step).ok(),
+                    Rank::try_from(i32::from(&start.rank()) + n * rank_step).ok(),
+                ) {
+                    let idx = ChessIndex::new(file, rank);
+                    Some(idx)
+                } else {
+                    None
+                }
+            })
+            .take_while(|idx| idx.is_some())
+            .skip(1)
+        {
+            let idx = idx.expect("should always be some because we checked `idx.is_some()` above");
+            match self[idx].piece() {
+                Some(p) => {
+                    if p.color() == color.opponent() {
+                        moves.push(ChessMove::regular(start, idx, Some(p)));
+                    }
+                    break;
+                }
+                None => {
+                    moves.push(ChessMove::regular(start, idx, None));
+                }
+            }
+        }
+
+        moves
+    }
+
     /// Move a piece from `from` to `to`
     fn move_piece<T>(&mut self, from: T, to: T) -> Result<(), MovePieceError>
     where
@@ -1512,9 +1552,96 @@ mod tests {
 
         let rook = board[F1].piece().unwrap();
         assert_eq!(rook.history(), &vec![H1, F1]);
-        
+
         let king = board[G1].piece().unwrap();
         assert!(king.is_king());
         assert_eq!(king.history(), &vec![E1, G1]);
+    }
+
+    #[test]
+    fn test_moves_to_opponents_piece() {
+        use Color::*;
+        let mut board = ChessBoard::default();
+
+        board.move_piece(D1, E5).unwrap();
+
+        // increasing rank
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, 0, 1, White),
+            vec![
+                ChessMove::regular(E5, E6, board[E6].piece()),
+                ChessMove::regular(E5, E7, board[E7].piece()),
+            ]
+        );
+
+        // decreasing rank
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, 0, -1, White),
+            vec![
+                ChessMove::regular(E5, E4, board[E4].piece()),
+                ChessMove::regular(E5, E3, board[E3].piece()),
+            ]
+        );
+
+        // increasing file
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, 1, 0, White),
+            vec![
+                ChessMove::regular(E5, F5, board[F5].piece()),
+                ChessMove::regular(E5, G5, board[G5].piece()),
+                ChessMove::regular(E5, H5, board[H5].piece()),
+            ]
+        );
+
+        // decreasing file
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, -1, 0, White),
+            vec![
+                ChessMove::regular(E5, D5, board[D5].piece()),
+                ChessMove::regular(E5, C5, board[C5].piece()),
+                ChessMove::regular(E5, B5, board[B5].piece()),
+                ChessMove::regular(E5, A5, board[A5].piece()),
+            ]
+        );
+
+        // diagonal
+        // increasing rank, increasing file
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, 1, 1, White),
+            vec![
+                ChessMove::regular(E5, F6, board[F6].piece()),
+                ChessMove::regular(E5, G7, board[G7].piece()),
+            ]
+        );
+
+        // diagonal
+        // increasing rank, decreasing file
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, -1, 1, White),
+            vec![
+                ChessMove::regular(E5, D6, board[D6].piece()),
+                ChessMove::regular(E5, C7, board[C7].piece()),
+            ]
+        );
+
+        // diagonal
+        // decreasing rank, increasing file
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, 1, -1, White),
+            vec![
+                ChessMove::regular(E5, F4, board[F4].piece()),
+                ChessMove::regular(E5, G3, board[G3].piece()),
+            ]
+        );
+
+        // diagonal
+        // decreasing rank, decreasing file
+        assert_eq!(
+            board.moves_to_opponents_piece(E5, -1, -1, White),
+            vec![
+                ChessMove::regular(E5, D4, board[D4].piece()),
+                ChessMove::regular(E5, C3, board[C3].piece()),
+            ]
+        );
     }
 }
