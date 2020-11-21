@@ -890,7 +890,7 @@ impl ChessBoard {
             Some(other_piece) if other_piece.color() != from_piece.color() => {
                 // there is an opponent piece at the target square
                 // replace the other piece
-                let from_piece = self[from].take_piece().unwrap(); // can call unwrap here because we matched on `piece()` above
+                let mut from_piece = self[from].take_piece().unwrap(); // can call unwrap here because we matched on `piece()` above
                 if from_piece.is_king() {
                     match from_piece.color() {
                         Color::Black => {
@@ -901,6 +901,7 @@ impl ChessBoard {
                         }
                     }
                 }
+                from_piece.add_move_to_history(Move::new(from, to));
                 let old_piece = self[to].set_piece(from_piece).unwrap(); // --||--;
 
                 Ok(Some(old_piece))
@@ -911,7 +912,7 @@ impl ChessBoard {
             }
             None => {
                 // there is no piece at the target square
-                let from_piece = self[from].take_piece().unwrap();
+                let mut from_piece = self[from].take_piece().unwrap();
                 if from_piece.is_king() {
                     match from_piece.color() {
                         Color::Black => {
@@ -922,6 +923,7 @@ impl ChessBoard {
                         }
                     }
                 }
+                from_piece.add_move_to_history(Move::new(from, to));
                 self[to].set_piece(from_piece);
                 Ok(None)
             }
@@ -1287,5 +1289,24 @@ mod tests {
 
         assert!(board.is_move_valid(Move::new(E2, E4)));
         assert!(board.is_move_valid(Move::new(A1, A3)));
+    }
+
+    #[test]
+    fn test_move_history() {
+        let mut board = ChessBoard::default();
+
+        assert_eq!(board[E2].piece().unwrap().history(), &vec![]);
+
+        board.move_piece(E2, E3).unwrap();
+        assert_eq!(
+            board[E3].piece().unwrap().history(),
+            &vec![Move::new(E2, E3)]
+        );
+
+        board.move_piece(E3, E4).unwrap();
+        assert_eq!(
+            board[E4].piece().unwrap().history(),
+            &vec![Move::new(E2, E3), Move::new(E3, E4)]
+        );
     }
 }
