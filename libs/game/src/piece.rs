@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-use crate::{Color, Move};
+use crate::{ChessIndex, ChessMove, Color};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Piece {
     piece_type: PieceType,
     color: Color,
-    history: Vec<Move>,
+    history: Vec<ChessIndex>,
 }
 
 impl Piece {
@@ -26,12 +26,16 @@ impl Piece {
         self.color
     }
 
-    pub fn history(&self) -> &Vec<Move> {
+    pub fn history(&self) -> &Vec<ChessIndex> {
         &self.history
     }
 
-    pub(crate) fn add_move_to_history(&mut self, chess_move: Move) {
-        self.history.push(chess_move);
+    pub fn has_made_move(&self) -> bool {
+        self.history.len() > 1
+    }
+
+    pub(crate) fn add_index_to_history(&mut self, index: ChessIndex) {
+        self.history.push(index);
     }
 
     pub fn is_pawn(&self) -> bool {

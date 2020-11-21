@@ -18,6 +18,14 @@ impl Square {
         }
     }
 
+    pub fn piece_mut(&mut self) -> Option<&mut Piece> {
+        if let Some(ref mut p) = self.piece {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
     pub fn clear(&mut self) {
         self.piece = None;
     }

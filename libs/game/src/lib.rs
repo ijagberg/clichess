@@ -9,7 +9,7 @@ mod rank;
 mod square;
 
 pub use chess_board::ChessBoard;
-pub use chess_move::Move;
+pub use chess_move::*;
 pub use file::{File, FileIter};
 pub use piece::*;
 pub use rank::{Rank, RankIter};

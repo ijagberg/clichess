@@ -1,6 +1,6 @@
 use crate::{
-    consts, file::FileIter, rank::RankIter, square::Square, ChessIndex, Color, Move, Piece,
-    PieceType,
+    consts, file::FileIter, rank::RankIter, square::Square, CastleMove, ChessIndex, ChessMove,
+    Color, File, Piece, PieceType, Rank,
 };
 use std::{
     convert::TryFrom,
@@ -14,6 +14,7 @@ pub struct ChessBoard {
     white_king: ChessIndex,
     black_king: ChessIndex,
     squares: [Square; 64],
+    previous: Box<Option<ChessBoard>>,
 }
 
 impl ChessBoard {
@@ -400,7 +401,7 @@ impl ChessBoard {
         }
     }
 
-    pub fn valid_moves_from(&self, from_index: ChessIndex) -> Vec<Move> {
+    pub fn valid_moves_from(&self, from_index: ChessIndex) -> Vec<ChessMove> {
         let mut clone: ChessBoard = self.clone();
 
         let piece = match clone[from_index].piece() {
@@ -420,45 +421,73 @@ impl ChessBoard {
 
         let mut actual_valid_moves = Vec::new();
         for valid_move in valid_moves {
-            let piece_at_target = clone
-                .execute_move(valid_move)
-                .expect(&format!("invalid move attempted: '{:?}'", valid_move));
+            clone
+                .execute_move(&valid_move)
+                .expect("invalid move attempted");
             if clone.is_king_checked(piece_color) {
                 // can't actually make this move
             } else {
                 actual_valid_moves.push(valid_move);
             }
-
-            // undo the move
-            // first take the piece we moved back
-            let piece = clone[valid_move.to_index()].take_piece().unwrap(); // can call unwrap here because we successfully executed the move earlier
-
-            // put the moved piece back to the original square
-            clone[from_index].set_piece(piece);
-
-            // if we took some piece by executing the move, put it back
-            if let Some(taken_piece) = piece_at_target {
-                clone[valid_move.to_index()].set_piece(taken_piece);
-            }
+            clone.undo_last_move();
         }
 
         actual_valid_moves
     }
 
-    pub fn execute_move(&mut self, chess_move: Move) -> Result<Option<Piece>, MovePieceError> {
-        self.move_piece(chess_move.from_index(), chess_move.to_index())
+    fn undo_last_move(&mut self) {
+        if self.previous.is_some() {
+            let p = self.previous.take();
+            *self = p.unwrap();
+        }
     }
 
-    pub fn is_move_valid(&self, chess_move: Move) -> bool {
-        let valid_moves_from = self.valid_moves_from(chess_move.from_index());
-        valid_moves_from.contains(&chess_move)
+    pub fn execute_move(&mut self, chess_move: &ChessMove) -> Result<(), MovePieceError> {
+        let prev = self.clone();
+        let result = match chess_move {
+            ChessMove::Regular(regular_move) => {
+                self.move_piece(regular_move.from(), regular_move.to())
+            }
+            ChessMove::Castle(_) => unimplemented!(),
+            ChessMove::Promotion(_) => unimplemented!(),
+        };
+
+        self.previous = Box::new(Some(prev));
+
+        result
+    }
+
+    fn execute_castle_move(&mut self, castle_move: CastleMove) {
+        let mut king = self[castle_move.king_from()]
+            .take_piece()
+            .expect("must be a king at from index");
+        let mut rook = self[castle_move.rook_from()]
+            .take_piece()
+            .expect("must be a rook at from index");
+
+        king.add_index_to_history(castle_move.king_to());
+        rook.add_index_to_history(castle_move.rook_to());
+
+        self[castle_move.king_to()].set_piece(king);
+        self[castle_move.rook_to()].set_piece(rook);
+    }
+
+    pub fn is_move_valid(&self, chess_move: &ChessMove) -> bool {
+        match chess_move {
+            ChessMove::Regular(regular) => {
+                let valid_moves_from = self.valid_moves_from(regular.from());
+                valid_moves_from.contains(&chess_move)
+            }
+            ChessMove::Castle(_) => unimplemented!(),
+            ChessMove::Promotion(_) => unimplemented!(),
+        }
     }
 
     fn can_castle(
         &self,
         king_index: ChessIndex,
         rook_index: ChessIndex,
-    ) -> Result<(), CanCastleError> {
+    ) -> Result<CastleMove, CanCastleError> {
         let (king, rook) = match (self[king_index].piece(), self[rook_index].piece()) {
             (Some(king), Some(rook))
                 if king.is_king() && rook.is_rook() && king.color() == rook.color() =>
@@ -473,9 +502,11 @@ impl ChessBoard {
 
         let color = king.color();
 
-        if !king.history().is_empty() || !rook.history().is_empty() {
-            // the king or rook has made some move before, can't castle
-            return Err(CanCastleError::PieceHasMadeMove);
+        if king.has_made_move() {
+            return Err(CanCastleError::PieceHasMadeMove(king_index));
+        }
+        if rook.has_made_move() {
+            return Err(CanCastleError::PieceHasMadeMove(rook_index));
         }
 
         // check that squares between the king and rook are empty and not in check
@@ -497,19 +528,31 @@ impl ChessBoard {
             }
         }
 
-        Ok(())
+        let (king_to, rook_to) = if king_index.file() < rook_index.file() {
+            (
+                ChessIndex::new((king_index.file() + 2).unwrap(), king_index.rank()),
+                ChessIndex::new((king_index.file() + 1).unwrap(), rook_index.rank()),
+            )
+        } else {
+            (
+                ChessIndex::new((king_index.file() - 2).unwrap(), king_index.rank()),
+                ChessIndex::new((king_index.file() - 1).unwrap(), rook_index.rank()),
+            )
+        };
+
+        Ok(CastleMove::new(king_index, king_to, rook_index, rook_to))
     }
 
-    fn valid_king_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
-        let mut moves: Vec<Move> = Vec::new();
+    fn valid_king_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
+        let mut moves: Vec<ChessMove> = Vec::new();
 
         // increasing file
         if let Some(file) = from_index.file() + 1 {
             let to_index = ChessIndex::new(file, from_index.rank());
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -519,8 +562,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(file, from_index.rank());
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -530,8 +573,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(from_index.file(), rank);
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -541,8 +584,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(from_index.file(), rank);
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -552,8 +595,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(file, rank);
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -563,8 +606,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(file, rank);
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -574,8 +617,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(file, rank);
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -585,8 +628,8 @@ impl ChessBoard {
             let to_index = ChessIndex::new(file, rank);
             match self[to_index].piece() {
                 Some(p) if p.color() == piece_color => {}
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
                 }
             }
         }
@@ -594,21 +637,21 @@ impl ChessBoard {
         moves
     }
 
-    fn valid_rook_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
+    fn valid_rook_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
         let mut moves = Vec::new();
 
         // increasing rank
         for rank in RankIter::start_at(from_index.rank()).skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(p) if p.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -617,14 +660,14 @@ impl ChessBoard {
         for rank in RankIter::start_at(from_index.rank()).rev().skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(p) if p.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -633,14 +676,14 @@ impl ChessBoard {
         for file in FileIter::start_at(from_index.file()).skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(p) if p.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -649,14 +692,14 @@ impl ChessBoard {
         for file in FileIter::start_at(from_index.file()).rev().skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(p) if p.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -664,7 +707,11 @@ impl ChessBoard {
         moves
     }
 
-    fn valid_knight_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
+    fn valid_knight_moves_from(
+        &self,
+        from_index: ChessIndex,
+        piece_color: Color,
+    ) -> Vec<ChessMove> {
         let mut moves = Vec::new();
 
         let offsets = vec![
@@ -683,20 +730,22 @@ impl ChessBoard {
                 u8::from(&from_index.file()) as i32 + file_offset,
                 u8::from(&from_index.rank()) as i32 + rank_offset,
             )) {
-                if self[to_index]
-                    .piece()
-                    .map(|p| p.color() == piece_color)
-                    .unwrap_or(false)
-                {
-                    continue;
+                match self[to_index].piece() {
+                    Some(p) if p.color() == piece_color => {}
+                    e => {
+                        moves.push(ChessMove::regular(from_index, to_index, e));
+                    }
                 }
-                moves.push(Move::new(from_index, to_index));
             }
         }
         moves
     }
 
-    fn valid_bishop_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
+    fn valid_bishop_moves_from(
+        &self,
+        from_index: ChessIndex,
+        piece_color: Color,
+    ) -> Vec<ChessMove> {
         let mut moves = Vec::new();
 
         // increasing file, increasing rank
@@ -706,13 +755,15 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -723,13 +774,15 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -741,51 +794,55 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
         // decreasing file, decreasing rank
-        for (to_file, to_rank) in FileIter::start_at(from_index.file())
+        for index in FileIter::start_at(from_index.file())
             .rev()
             .zip(RankIter::start_at(from_index.rank()).rev())
+            .map(|(file, rank)| ChessIndex::new(file, rank))
             .skip(1)
         {
-            let to_index = ChessIndex::new(to_file, to_rank);
-            match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+            match self[index].piece() {
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
         moves
     }
 
-    fn valid_queen_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<Move> {
+    fn valid_queen_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
         // increasing rank
         let mut moves = Vec::new();
         for rank in RankIter::start_at(from_index.rank()).skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -794,14 +851,14 @@ impl ChessBoard {
         for rank in RankIter::start_at(from_index.rank()).rev().skip(1) {
             let to_index = ChessIndex::from((from_index.file(), rank));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -810,14 +867,14 @@ impl ChessBoard {
         for file in FileIter::start_at(from_index.file()).skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -826,14 +883,14 @@ impl ChessBoard {
         for file in FileIter::start_at(from_index.file()).rev().skip(1) {
             let to_index = ChessIndex::from((file, from_index.rank()));
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index))
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => {
-                    moves.push(Move::new(from_index, to_index));
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
                 }
             }
         }
@@ -845,13 +902,15 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -862,13 +921,15 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -880,13 +941,15 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -898,13 +961,15 @@ impl ChessBoard {
         {
             let to_index = ChessIndex::new(to_file, to_rank);
             match self[to_index].piece() {
-                Some(target_piece) => {
-                    if target_piece.color() != piece_color {
-                        moves.push(Move::new(from_index, to_index));
-                    }
+                Some(target_piece) if target_piece.color() == piece_color => {
                     break;
                 }
-                _ => moves.push(Move::new(from_index, to_index)),
+                e => {
+                    moves.push(ChessMove::regular(from_index, to_index, e));
+                    if e.is_some() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -912,10 +977,7 @@ impl ChessBoard {
     }
 
     /// Move a piece from `from` to `to`
-    ///
-    /// # Returns
-    /// A result containing the piece that was taken (if any), or an error describing why the move could not be made
-    pub fn move_piece<T>(&mut self, from: T, to: T) -> Result<Option<Piece>, MovePieceError>
+    fn move_piece<T>(&mut self, from: T, to: T) -> Result<(), MovePieceError>
     where
         T: Into<ChessIndex>,
     {
@@ -925,51 +987,50 @@ impl ChessBoard {
         // check if there is actually a piece at from
         let from_piece = match self[from].piece() {
             Some(p) => p,
-            None => return Err(MovePieceError::NoPieceToMove),
+            None => return Err(MovePieceError::NoPieceToMove(from)),
         };
 
-        match self[to].piece() {
-            Some(other_piece) if other_piece.color() != from_piece.color() => {
-                // there is an opponent piece at the target square
-                // replace the other piece
-                let mut from_piece = self[from].take_piece().unwrap(); // can call unwrap here because we matched on `piece()` above
-                if from_piece.is_king() {
-                    match from_piece.color() {
-                        Color::Black => {
-                            self.black_king = to;
-                        }
-                        Color::White => {
-                            self.white_king = to;
-                        }
-                    }
-                }
-                from_piece.add_move_to_history(Move::new(from, to));
-                let old_piece = self[to].set_piece(from_piece).unwrap(); // --||--;
-
-                Ok(Some(old_piece))
-            }
-            Some(_other_piece) => {
-                // there is a piece of the same color at the target square
-                Err(MovePieceError::OwnPieceAtTarget)
-            }
-            None => {
-                // there is no piece at the target square
-                let mut from_piece = self[from].take_piece().unwrap();
-                if from_piece.is_king() {
-                    match from_piece.color() {
-                        Color::Black => {
-                            self.black_king = to;
-                        }
-                        Color::White => {
-                            self.white_king = to;
-                        }
-                    }
-                }
-                from_piece.add_move_to_history(Move::new(from, to));
-                self[to].set_piece(from_piece);
-                Ok(None)
+        if let Some(piece) = self[to].piece() {
+            if piece.color() == from_piece.color() {
+                return Err(MovePieceError::OwnPieceAtTarget);
             }
         }
+
+        let mut from_piece = self[from].take_piece().unwrap();
+        if from_piece.is_king() {
+            match from_piece.color() {
+                Color::Black => {
+                    self.black_king = to;
+                }
+                Color::White => {
+                    self.white_king = to;
+                }
+            }
+        }
+        from_piece.add_index_to_history(to);
+        self[to].set_piece(from_piece);
+        Ok(())
+    }
+}
+
+impl Display for ChessBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut lines = Vec::new();
+        for rank in RankIter::start_at(Rank::Eighth).rev() {
+            let mut pieces = Vec::new();
+            for file in FileIter::start_at(File::A) {
+                let chess_index = ChessIndex::from((file, rank));
+                let output = match self[chess_index].piece() {
+                    Some(p) => format!("{}", p),
+                    None => " ".to_string(),
+                };
+
+                pieces.push(output);
+            }
+
+            lines.push(pieces.join(" "));
+        }
+        write!(f, "{}", lines.join("\n"))
     }
 }
 
@@ -978,7 +1039,7 @@ enum CanCastleError {
     WrongPieces,
     SquareInCheck(ChessIndex),
     PiecesBetween,
-    PieceHasMadeMove,
+    PieceHasMadeMove(ChessIndex),
 }
 
 impl Display for CanCastleError {
@@ -993,9 +1054,10 @@ impl Display for CanCastleError {
             CanCastleError::PiecesBetween => {
                 format!("can't castle because there are pieces between the king and rook")
             }
-            CanCastleError::PieceHasMadeMove => {
-                format!("can't castle because the king or rook has already moved")
-            }
+            CanCastleError::PieceHasMadeMove(idx) => format!(
+                "can't castle because the piece at {} has already moved",
+                idx
+            ),
         };
 
         write!(f, "{}", output)
@@ -1004,14 +1066,14 @@ impl Display for CanCastleError {
 
 #[derive(Debug)]
 pub enum MovePieceError {
-    NoPieceToMove,
+    NoPieceToMove(ChessIndex),
     OwnPieceAtTarget,
 }
 
 impl Display for MovePieceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            MovePieceError::NoPieceToMove => format!("no piece at specified from coordinate"),
+            MovePieceError::NoPieceToMove(index) => format!("no piece at {}", index),
             MovePieceError::OwnPieceAtTarget => format!("can't move to a square you occupy"),
         };
 
@@ -1036,7 +1098,7 @@ impl IndexMut<ChessIndex> for ChessBoard {
 
 impl Default for ChessBoard {
     fn default() -> Self {
-        let board = [
+        let squares = [
             // rank 1
             Square::occupied(Color::Black, Piece::rook(Color::White)), // a1
             Square::occupied(Color::White, Piece::knight(Color::White)), // b1
@@ -1111,11 +1173,23 @@ impl Default for ChessBoard {
             Square::occupied(Color::Black, Piece::rook(Color::Black)), // h8
         ];
 
-        Self {
-            squares: board,
+        let mut s = Self {
+            squares,
             white_king: consts::E1,
             black_king: consts::E8,
+            previous: Box::new(None),
+        };
+
+        for file in FileIter::start_at(File::A) {
+            for rank in RankIter::start_at(Rank::First) {
+                let idx = ChessIndex::new(file, rank);
+                if let Some(p) = s[idx].piece_mut() {
+                    p.add_index_to_history(idx);
+                }
+            }
         }
+
+        s
     }
 }
 
@@ -1126,18 +1200,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_should_capture() {
-        let mut board = ChessBoard::default();
-
-        // move e2 pawn to e6 to prepare test
-        board.move_piece(E2, E6).unwrap();
-
-        let black_d7_pawn = board.move_piece(E6, D7).unwrap();
-
-        assert_eq!(Some(Piece::pawn(Color::Black)), black_d7_pawn);
-    }
-
-    #[test]
     fn test_rook_moves() {
         let mut board = ChessBoard::default();
         board.move_piece(A2, E4).unwrap();
@@ -1145,7 +1207,10 @@ mod tests {
         let targets: Vec<ChessIndex> = board
             .valid_rook_moves_from(E4, Color::White)
             .iter()
-            .map(|m| m.to_index())
+            .map(|m| match m {
+                ChessMove::Regular(reg) => reg.to(),
+                _ => unreachable!(),
+            })
             .collect();
 
         assert_eq!(vec![E5, E6, E7, E3, F4, G4, H4, D4, C4, B4, A4,], targets)
@@ -1160,7 +1225,10 @@ mod tests {
         let targets: Vec<ChessIndex> = board
             .valid_knight_moves_from(B1, Color::White)
             .iter()
-            .map(|m| m.to_index())
+            .map(|m| match m {
+                ChessMove::Regular(reg) => reg.to(),
+                _ => unreachable!(),
+            })
             .collect();
 
         assert_eq!(vec![C3, A3], targets);
@@ -1168,7 +1236,10 @@ mod tests {
         let targets: Vec<ChessIndex> = board
             .valid_knight_moves_from(E4, Color::White)
             .iter()
-            .map(|m| m.to_index())
+            .map(|m| match m {
+                ChessMove::Regular(reg) => reg.to(),
+                _ => unreachable!(),
+            })
             .collect();
 
         assert_eq!(vec![G5, G3, C5, C3, F6, D6,], targets);
@@ -1182,7 +1253,10 @@ mod tests {
         let targets: Vec<ChessIndex> = board
             .valid_bishop_moves_from(F4, Color::White)
             .iter()
-            .map(|m| m.to_index())
+            .map(|m| match m {
+                ChessMove::Regular(reg) => reg.to(),
+                _ => unreachable!(),
+            })
             .collect();
 
         assert_eq!(vec![G5, H6, G3, E5, D6, C7, E3,], targets);
@@ -1193,66 +1267,70 @@ mod tests {
         let mut board = ChessBoard::default();
         board.move_piece(D1, D4).unwrap();
 
-        assert_eq!(
-            board.valid_moves_from(D4),
-            vec![
-                Move::new(D4, D5),
-                Move::new(D4, D6),
-                Move::new(D4, D7),
-                Move::new(D4, D3),
-                Move::new(D4, E4),
-                Move::new(D4, F4),
-                Move::new(D4, G4),
-                Move::new(D4, H4),
-                Move::new(D4, C4),
-                Move::new(D4, B4),
-                Move::new(D4, A4),
-                Move::new(D4, E5),
-                Move::new(D4, F6),
-                Move::new(D4, G7),
-                Move::new(D4, E3),
-                Move::new(D4, C5),
-                Move::new(D4, B6),
-                Move::new(D4, A7),
-                Move::new(D4, C3),
-            ]
-        );
+        let actual = board.valid_moves_from(D4);
+        let expected = vec![
+            ChessMove::regular(D4, D5, board[D5].piece()),
+            ChessMove::regular(D4, D6, board[D6].piece()),
+            ChessMove::regular(D4, D7, board[D7].piece()),
+            ChessMove::regular(D4, D3, board[D3].piece()),
+            ChessMove::regular(D4, E4, board[E4].piece()),
+            ChessMove::regular(D4, F4, board[F4].piece()),
+            ChessMove::regular(D4, G4, board[G4].piece()),
+            ChessMove::regular(D4, H4, board[H4].piece()),
+            ChessMove::regular(D4, C4, board[C4].piece()),
+            ChessMove::regular(D4, B4, board[B4].piece()),
+            ChessMove::regular(D4, A4, board[A4].piece()),
+            ChessMove::regular(D4, E5, board[E5].piece()),
+            ChessMove::regular(D4, F6, board[F6].piece()),
+            ChessMove::regular(D4, G7, board[G7].piece()),
+            ChessMove::regular(D4, E3, board[E3].piece()),
+            ChessMove::regular(D4, C5, board[C5].piece()),
+            ChessMove::regular(D4, B6, board[B6].piece()),
+            ChessMove::regular(D4, A7, board[A7].piece()),
+            ChessMove::regular(D4, C3, board[C3].piece()),
+        ];
+        for (actual, expected) in actual.into_iter().zip(expected.into_iter()) {
+            assert_eq!(actual, expected);
+        }
     }
 
     #[test]
     fn test_king_moves() {
         let mut board = ChessBoard::default();
+        println!("{}\n", board);
 
         assert_eq!(board.valid_king_moves_from(E1, Color::White), vec![]);
 
         board.move_piece(E1, E4).unwrap();
+        println!("{}\n", board);
         assert_eq!(
             board.valid_king_moves_from(E4, Color::White),
             vec![
-                Move::new(E4, F4),
-                Move::new(E4, D4),
-                Move::new(E4, E5),
-                Move::new(E4, E3),
-                Move::new(E4, F5),
-                Move::new(E4, F3),
-                Move::new(E4, D5),
-                Move::new(E4, D3),
+                ChessMove::regular(E4, F4, board[F4].piece()),
+                ChessMove::regular(E4, D4, board[D4].piece()),
+                ChessMove::regular(E4, E5, board[E5].piece()),
+                ChessMove::regular(E4, E3, board[E3].piece()),
+                ChessMove::regular(E4, F5, board[F5].piece()),
+                ChessMove::regular(E4, F3, board[F3].piece()),
+                ChessMove::regular(E4, D5, board[D5].piece()),
+                ChessMove::regular(E4, D3, board[D3].piece()),
             ]
         );
 
         board.move_piece(F7, F6).unwrap();
+        println!("{}\n", board);
         assert_eq!(
             board.valid_moves_from(E4),
             vec![
-                Move::new(E4, F4),
-                Move::new(E4, D4),
-                Move::new(E4, E3),
-                Move::new(E4, F5),
-                Move::new(E4, F3),
-                Move::new(E4, D5),
-                Move::new(E4, D3),
+                ChessMove::regular(E4, F4, board[F4].piece()),
+                ChessMove::regular(E4, D4, board[D4].piece()),
+                ChessMove::regular(E4, E3, board[E3].piece()),
+                ChessMove::regular(E4, F5, board[F5].piece()),
+                ChessMove::regular(E4, F3, board[F3].piece()),
+                ChessMove::regular(E4, D5, board[D5].piece()),
+                ChessMove::regular(E4, D3, board[D3].piece()),
             ]
-        )
+        );
     }
 
     #[test]
@@ -1332,17 +1410,17 @@ mod tests {
         assert_eq!(
             board.valid_moves_from(A3),
             vec![
-                Move::new(A3, A4),
-                Move::new(A3, A5),
-                Move::new(A3, A6),
-                Move::new(A3, A7),
-                Move::new(A3, B3),
-                Move::new(A3, C3),
-                Move::new(A3, D3),
-                Move::new(A3, E3),
-                Move::new(A3, F3),
-                Move::new(A3, G3),
-                Move::new(A3, H3),
+                ChessMove::regular(A3, A4, board[A4].piece()),
+                ChessMove::regular(A3, A5, board[A5].piece()),
+                ChessMove::regular(A3, A6, board[A6].piece()),
+                ChessMove::regular(A3, A7, board[A7].piece()),
+                ChessMove::regular(A3, B3, board[B3].piece()),
+                ChessMove::regular(A3, C3, board[C3].piece()),
+                ChessMove::regular(A3, D3, board[D3].piece()),
+                ChessMove::regular(A3, E3, board[E3].piece()),
+                ChessMove::regular(A3, F3, board[F3].piece()),
+                ChessMove::regular(A3, G3, board[G3].piece()),
+                ChessMove::regular(A3, H3, board[H3].piece()),
             ]
         );
 
@@ -1350,13 +1428,16 @@ mod tests {
         board.move_piece(A8, A5).unwrap();
         assert_eq!(
             board.valid_moves_from(A5),
-            vec![Move::new(A5, A4), Move::new(A5, A3)]
+            vec![
+                ChessMove::regular(A5, A4, board[A4].piece()),
+                ChessMove::regular(A5, A3, board[A3].piece())
+            ]
         );
     }
 
     #[test]
     fn test_is_move_valid() {
-        let board = ChessBoard::default();
+        // let board = ChessBoard::default();
 
         // assert!(board.is_move_valid(Move::new(E2, E4)));
         // assert!(board.is_move_valid(Move::new(A1, A3)));
@@ -1366,19 +1447,13 @@ mod tests {
     fn test_move_history() {
         let mut board = ChessBoard::default();
 
-        assert_eq!(board[E2].piece().unwrap().history(), &vec![]);
+        assert_eq!(board[E2].piece().unwrap().history(), &vec![E2]);
 
         board.move_piece(E2, E3).unwrap();
-        assert_eq!(
-            board[E3].piece().unwrap().history(),
-            &vec![Move::new(E2, E3)]
-        );
+        assert_eq!(board[E3].piece().unwrap().history(), &vec![E2, E3]);
 
         board.move_piece(E3, E4).unwrap();
-        assert_eq!(
-            board[E4].piece().unwrap().history(),
-            &vec![Move::new(E2, E3), Move::new(E3, E4)]
-        );
+        assert_eq!(board[E4].piece().unwrap().history(), &vec![E2, E3, E4]);
     }
 
     #[test]
@@ -1407,14 +1482,39 @@ mod tests {
         // move black rook away
         board[G6].take_piece();
 
-        assert_eq!(board.can_castle(E1, H1), Ok(())); // can castle now
+        assert_eq!(
+            board.can_castle(E1, H1),
+            Ok(CastleMove::new(E1, G1, H1, F1))
+        ); // can castle now
 
         // move white rook to G1
         board.move_piece(H1, G1).unwrap();
 
         assert_eq!(
             board.can_castle(E1, G1),
-            Err(CanCastleError::PieceHasMadeMove)
+            Err(CanCastleError::PieceHasMadeMove(G1))
         ); // rook has moved now
+    }
+
+    #[test]
+    fn test_execute_castle_move() {
+        let mut board = ChessBoard::default();
+
+        board[F1].clear();
+        board[G1].clear();
+
+        let castle_move = board.can_castle(E1, H1).unwrap();
+
+        board.execute_castle_move(castle_move);
+
+        assert_eq!(board[E1].piece(), None);
+        assert_eq!(board[H1].piece(), None);
+
+        let rook = board[F1].piece().unwrap();
+        assert_eq!(rook.history(), &vec![H1, F1]);
+        
+        let king = board[G1].piece().unwrap();
+        assert!(king.is_king());
+        assert_eq!(king.history(), &vec![E1, G1]);
     }
 }
