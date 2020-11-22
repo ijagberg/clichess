@@ -394,10 +394,14 @@ impl ChessBoard {
         None
     }
 
-    fn get_king(&self, color: Color) -> Option<&Piece> {
+    fn get_king(&self, color: Color) -> &Piece {
         match color {
-            Color::Black => self[self.black_king].piece(),
-            Color::White => self[self.white_king].piece(),
+            Color::Black => self[self.black_king]
+                .piece()
+                .expect(&format!("no black king on {}", self.black_king)),
+            Color::White => self[self.white_king]
+                .piece()
+                .expect(&format!("no white king on {}", self.white_king)),
         }
     }
 
