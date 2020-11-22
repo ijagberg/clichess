@@ -34,6 +34,14 @@ impl Piece {
         self.history.len() > 1
     }
 
+    pub fn previous_index(&self) -> Option<&ChessIndex> {
+        if self.history().len() < 2 {
+            None
+        } else {
+            self.history().get(self.history().len() - 2)
+        }
+    }
+
     pub(crate) fn add_index_to_history(&mut self, index: ChessIndex) {
         self.history.push(index);
     }

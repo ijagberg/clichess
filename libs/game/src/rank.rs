@@ -20,6 +20,14 @@ pub enum Rank {
 }
 
 impl Rank {
+    pub fn is_en_passant_rank(&self, color: Color) -> bool {
+        match (self, color) {
+            (Rank::Fourth, Color::Black) => true,
+            (Rank::Fifth, Color::White) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_pawn_starting_rank(&self, color: Color) -> bool {
         match (self, color) {
             (Rank::Second, Color::White) => true,

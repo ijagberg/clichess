@@ -439,61 +439,109 @@ impl ChessBoard {
         actual_valid_moves
     }
 
-    fn valid_pawn_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
+    fn valid_pawn_moves_from(&self, pawn_idx: ChessIndex, pawn_color: Color) -> Vec<ChessMove> {
         let mut moves = Vec::new();
 
-        let forward_offset = match piece_color {
+        let forward_offset = match pawn_color {
             Color::Black => -1_i32,
             Color::White => 1_i32,
         };
-
-        // "forward"
-        let forward_rank: Option<Rank> = from_index.rank() + forward_offset;
-        match forward_rank {
-            Some(rank) if rank.is_pawn_promotion_rank(piece_color) => {
-                // promotion moves
-            }
-            Some(rank) => {
-                let forward_idx = ChessIndex::new(from_index.file(), rank);
-                if self[forward_idx].piece().is_none() {
-                    // pawn can move forward
-                    moves.push(ChessMove::regular(from_index, forward_idx, None));
-                    if from_index.rank().is_pawn_starting_rank(piece_color) {
-                        let forward_forward_idx = ChessIndex::new(
-                            from_index.file(),
-                            (from_index.rank() + 2 * forward_offset).expect("if the rank is the starting rank, then we should be able to add 2 to it"),
-                        );
-                        if self[forward_forward_idx].piece().is_none() {
-                            // can move two steps forward since we haven't made a move yet
-                            moves.push(ChessMove::regular(from_index, forward_forward_idx, None));
-                        }
-                    }
-                }
-                for diagonal_idx in vec![forward_idx.file() - 1, forward_idx.file() + 1]
-                    .into_iter()
-                    .filter_map(|file: Option<File>| {
-                        file.map(|file| ChessIndex::new(file, forward_idx.rank()))
-                    })
-                {
-                    match self[diagonal_idx].piece() {
-                        Some(piece) if piece.color() == piece_color.opponent() => {
-                            moves.push(ChessMove::regular(from_index, diagonal_idx, Some(piece)))
-                        }
-                        _ => {
-                            // can't move to the diagonal if it is empty (except en passant) or if we have a piece there
-                        }
-                    }
-                }
-            }
+        let forward_rank: Rank = match pawn_idx.rank() + forward_offset {
+            Some(rank) => rank,
             None => {
                 // we are at the end of the board,
                 // this should not happen i think?
                 // either way there are no valid pawn moves from here
-                return Vec::new();
+                return moves;
+            }
+        };
+        let forward_idx = ChessIndex::new(pawn_idx.file(), forward_rank);
+
+        let diagonals: Vec<ChessIndex> = vec![forward_idx.file() - 1, forward_idx.file() + 1]
+            .into_iter()
+            .filter_map(|file: Option<File>| {
+                file.map(|file| ChessIndex::new(file, forward_idx.rank()))
+            })
+            .collect();
+
+        if pawn_idx.rank().is_pawn_promotion_rank(pawn_color) {
+            let pawn = self[pawn_idx].piece().expect("must be a pawn here TODO");
+            // promotion moves
+            if self[forward_idx].piece().is_none() {
+                // pawn can move forward
+                moves.append(&mut ChessMove::promotions(
+                    pawn_idx,
+                    forward_idx,
+                    pawn,
+                    None,
+                ));
+            }
+            for diagonal_idx in diagonals {
+                match self[diagonal_idx].piece() {
+                    Some(piece) if piece.color() == pawn_color.opponent() => {
+                        moves.append(&mut ChessMove::promotions(
+                            pawn_idx,
+                            diagonal_idx,
+                            pawn,
+                            Some(piece),
+                        ));
+                    }
+                    _ => {
+                        // can't move to the diagonal if it is empty (except en passant) or if we have a piece there
+                    }
+                }
+            }
+        } else {
+            if self[forward_idx].piece().is_none() {
+                // pawn can move forward
+                moves.push(ChessMove::regular(pawn_idx, forward_idx, None));
+                if pawn_idx.rank().is_pawn_starting_rank(pawn_color) {
+                    let forward_forward_idx = ChessIndex::new(
+                            pawn_idx.file(),
+                            (pawn_idx.rank() + 2 * forward_offset).expect("if the rank is the starting rank, then we should be able to add 2 to it"),
+                        );
+                    if self[forward_forward_idx].piece().is_none() {
+                        // can move two steps forward since we haven't made a move yet
+                        moves.push(ChessMove::regular(pawn_idx, forward_forward_idx, None));
+                    }
+                }
+            }
+            for diagonal_idx in diagonals {
+                match self[diagonal_idx].piece() {
+                    Some(piece) if piece.color() == pawn_color.opponent() => {
+                        moves.push(ChessMove::regular(pawn_idx, diagonal_idx, Some(piece)))
+                    }
+                    _ => {
+                        // can't move to the diagonal if it is empty (except en passant) or if we have a piece there
+                    }
+                }
             }
         }
 
         // en passant
+        if pawn_idx.rank().is_en_passant_rank(pawn_color) {
+            // pawn is placed on the rank where en passant can be made
+            let left_right: Vec<ChessIndex> = vec![pawn_idx.file() - 1, pawn_idx.file() + 1]
+                .into_iter()
+                .filter_map(|file: Option<File>| {
+                    file.map(|file| ChessIndex::new(file, pawn_idx.rank()))
+                })
+                .collect();
+            for other_idx in left_right {
+                if let Some(other_piece) = self[other_idx].piece() {
+                    if other_piece.is_pawn()
+                        && other_piece.color() == pawn_color.opponent()
+                        && other_piece
+                            .previous_index()
+                            .expect("can't be a pawn on this rank if it has made no moves")
+                            .rank()
+                            == (pawn_idx.rank() + 2_i32 * forward_offset).expect("if the given pawn is on the en passant rank, we can move two steps forward")
+                    {
+                        moves.push(ChessMove::regular(pawn_idx, ChessIndex::new(other_idx.file(),(other_idx.rank() + forward_offset).unwrap()), Some(other_piece))); // TODO: maybe add an EnPassant variant to the ChessMove enum
+                    }
+                }
+            }
+        }
 
         moves
     }
@@ -1505,6 +1553,88 @@ mod tests {
                 ChessMove::regular(D4, E5, board[E5].piece()),
             ]
         );
+    }
+
+    #[test]
+    fn test_pawn_promotion() {
+        let mut board = ChessBoard::default();
+
+        print_board("initial", &board);
+
+        board[A7].clear();
+        board.move_piece(D2, A7).unwrap();
+
+        print_board("white pawn in promotion position", &board);
+
+        assert_eq!(
+            board.valid_pawn_moves_from(A7, White),
+            vec![
+                ChessMove::promotion(
+                    A7,
+                    B8,
+                    board[A7].piece().unwrap(),
+                    Piece::new(PieceType::Knight, White),
+                    board[B8].piece()
+                ),
+                ChessMove::promotion(
+                    A7,
+                    B8,
+                    board[A7].piece().unwrap(),
+                    Piece::new(PieceType::Rook, White),
+                    board[B8].piece()
+                ),
+                ChessMove::promotion(
+                    A7,
+                    B8,
+                    board[A7].piece().unwrap(),
+                    Piece::new(PieceType::Queen, White),
+                    board[B8].piece()
+                ),
+                ChessMove::promotion(
+                    A7,
+                    B8,
+                    board[A7].piece().unwrap(),
+                    Piece::new(PieceType::Bishop, White),
+                    board[B8].piece()
+                )
+            ]
+        );
+    }
+
+    #[test]
+    fn test_en_passant() {
+        let mut board = ChessBoard::default();
+
+        print_board("initial", &board);
+
+        board.move_piece(D1, D5).unwrap();
+        board.move_piece(E7, E5).unwrap();
+
+        print_board("black pawn moves two steps", &board);
+
+        assert_eq!(
+            board.valid_pawn_moves_from(D5, White),
+            vec![
+                ChessMove::regular(D5, D6, board[D6].piece()),
+                ChessMove::regular(D5, E6, board[E5].piece()), // takes the black pawn on E5, even though white pawn moves to E6
+            ]
+        );
+
+        board.move_piece(C7, C6).unwrap();
+        board.move_piece(C6, C5).unwrap();
+
+        print_board("black C7 pawn moves to C5 (in two moves)", &board);
+
+        // en passant can't be done on the C7 pawn
+        assert_eq!(
+            board.valid_pawn_moves_from(D5, White),
+            vec![
+                ChessMove::regular(D5, D6, board[D6].piece()),
+                ChessMove::regular(D5, E6, board[E5].piece()), // takes the black pawn on E5, even though white pawn moves to E6
+            ]
+        );
+
+        // TODO: En passant should only be possible if the targeted pawn's move was the most recent move on the board
     }
 
     fn print_board(title: &str, board: &ChessBoard) {

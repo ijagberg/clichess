@@ -1,15 +1,48 @@
-use crate::{ChessBoard, ChessIndex, Piece};
+use crate::{ChessBoard, ChessIndex, Piece, PieceType};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ChessMove<'a> {
     Regular(RegularMove<'a>),
     Castle(CastleMove),
-    Promotion(PromotionMove),
+    Promotion(PromotionMove<'a>),
 }
 
 impl<'a> ChessMove<'a> {
     pub fn regular(from: ChessIndex, to: ChessIndex, piece: Option<&'a Piece>) -> ChessMove {
         ChessMove::Regular(RegularMove::new(from, to, piece))
+    }
+
+    pub fn promotions(
+        from: ChessIndex,
+        to: ChessIndex,
+        pawn: &'a Piece,
+        taken_piece: Option<&'a Piece>,
+    ) -> Vec<ChessMove<'a>> {
+        vec![
+            PieceType::Knight,
+            PieceType::Rook,
+            PieceType::Queen,
+            PieceType::Bishop,
+        ]
+        .into_iter()
+        .map(|pt| ChessMove::promotion(from, to, pawn, Piece::new(pt, pawn.color()), taken_piece))
+        .collect()
+    }
+
+    pub fn promotion(
+        from: ChessIndex,
+        to: ChessIndex,
+        pawn: &'a Piece,
+        promotion_piece: Piece,
+        taken_piece: Option<&'a Piece>,
+    ) -> ChessMove<'a> {
+        ChessMove::Promotion(PromotionMove::new(
+            from,
+            to,
+            pawn,
+            promotion_piece,
+            taken_piece,
+        ))
     }
 }
 
@@ -87,4 +120,36 @@ impl CastleMove {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct PromotionMove();
+pub struct PromotionMove<'a>(ChessIndex, ChessIndex, &'a Piece, Piece, Option<&'a Piece>);
+
+impl<'a> PromotionMove<'a> {
+    pub fn new(
+        from: ChessIndex,
+        to: ChessIndex,
+        pawn: &'a Piece,
+        promotion_piece: Piece,
+        taken_piece: Option<&'a Piece>,
+    ) -> Self {
+        Self(from, to, pawn, promotion_piece, taken_piece)
+    }
+
+    pub fn from(&self) -> ChessIndex {
+        self.0
+    }
+
+    pub fn to(&self) -> ChessIndex {
+        self.1
+    }
+
+    pub fn pawn(&self) -> &Piece {
+        &self.2
+    }
+
+    pub fn promotion_piece(&self) -> &Piece {
+        &self.3
+    }
+
+    pub fn taken_piece(&self) -> Option<&Piece> {
+        self.4
+    }
+}
