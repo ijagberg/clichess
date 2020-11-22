@@ -4,6 +4,8 @@ use std::{
     ops::{Add, Sub},
 };
 
+use crate::Color;
+
 /// A chess rank (horizontal line)
 #[derive(Debug, Copy, PartialEq, Clone, Eq)]
 pub enum Rank {
@@ -15,6 +17,24 @@ pub enum Rank {
     Sixth,
     Seventh,
     Eighth,
+}
+
+impl Rank {
+    pub fn is_pawn_starting_rank(&self, color: Color) -> bool {
+        match (self, color) {
+            (Rank::Second, Color::White) => true,
+            (Rank::Seventh, Color::Black) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_pawn_promotion_rank(&self, color: Color) -> bool {
+        match (self, color) {
+            (Rank::Second, Color::Black) => true,
+            (Rank::Seventh, Color::White) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Add<u8> for Rank {
@@ -43,6 +63,22 @@ impl Sub<u8> for Rank {
         match Rank::try_from(v) {
             Ok(f) => Some(f),
             Err(_) => None,
+        }
+    }
+}
+
+impl Add<i32> for Rank {
+    type Output = Option<Rank>;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        if rhs < 0 {
+            let rhs = u8::try_from(rhs.abs()).ok()?;
+            let result: Option<Rank> = self - rhs;
+            result
+        } else {
+            let rhs = u8::try_from(rhs).ok()?;
+            let result: Option<Rank> = self + rhs;
+            result
         }
     }
 }
@@ -143,11 +179,11 @@ pub struct RankIter {
 
 impl RankIter {
     /// Start a new `RankIter` at `start`
-    /// 
+    ///
     /// # Example
     /// ```
     /// use game::{Rank, RankIter};
-    /// 
+    ///
     /// let mut rank_iter = RankIter::start_at(Rank::First);
     /// assert_eq!(rank_iter.next(), Some(Rank::First));
     /// assert_eq!(rank_iter.next(), Some(Rank::Second));
@@ -224,5 +260,14 @@ mod tests {
             RankIter::start_at(Rank::Fourth).rev().collect::<Vec<_>>(),
             vec![Rank::Fourth, Rank::Third, Rank::Second, Rank::First]
         );
+    }
+
+    #[test]
+    fn test_add_i32() {
+        assert_eq!(Rank::Third + (-1_i32), Some(Rank::Second));
+        assert_eq!(Rank::Third + (-2_i32), Some(Rank::First));
+        assert_eq!(Rank::Third + (-3_i32), None);
+        assert_eq!(Rank::Third + (3_i32), Some(Rank::Sixth));
+        assert_eq!(Rank::Third + (20_i32), None);
     }
 }

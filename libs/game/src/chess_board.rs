@@ -415,7 +415,7 @@ impl ChessBoard {
         let piece_color = piece.color();
 
         let valid_moves = match piece.piece_type() {
-            PieceType::Pawn => unimplemented!(),
+            PieceType::Pawn => self.valid_pawn_moves_from(from_index, piece_color),
             PieceType::Knight => self.valid_knight_moves_from(from_index, piece_color),
             PieceType::Bishop => self.valid_bishop_moves_from(from_index, piece_color),
             PieceType::Rook => self.valid_rook_moves_from(from_index, piece_color),
@@ -437,6 +437,65 @@ impl ChessBoard {
         }
 
         actual_valid_moves
+    }
+
+    fn valid_pawn_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
+        let mut moves = Vec::new();
+
+        let forward_offset = match piece_color {
+            Color::Black => -1_i32,
+            Color::White => 1_i32,
+        };
+
+        // "forward"
+        let forward_rank: Option<Rank> = from_index.rank() + forward_offset;
+        match forward_rank {
+            Some(rank) if rank.is_pawn_promotion_rank(piece_color) => {
+                // promotion moves
+            }
+            Some(rank) => {
+                let forward_idx = ChessIndex::new(from_index.file(), rank);
+                if self[forward_idx].piece().is_none() {
+                    // pawn can move forward
+                    moves.push(ChessMove::regular(from_index, forward_idx, None));
+                    if from_index.rank().is_pawn_starting_rank(piece_color) {
+                        let forward_forward_idx = ChessIndex::new(
+                            from_index.file(),
+                            (from_index.rank() + 2 * forward_offset).expect("if the rank is the starting rank, then we should be able to add 2 to it"),
+                        );
+                        if self[forward_forward_idx].piece().is_none() {
+                            // can move two steps forward since we haven't made a move yet
+                            moves.push(ChessMove::regular(from_index, forward_forward_idx, None));
+                        }
+                    }
+                }
+                for diagonal_idx in vec![forward_idx.file() - 1, forward_idx.file() + 1]
+                    .into_iter()
+                    .filter_map(|file: Option<File>| {
+                        file.map(|file| ChessIndex::new(file, forward_idx.rank()))
+                    })
+                {
+                    match self[diagonal_idx].piece() {
+                        Some(piece) if piece.color() == piece_color.opponent() => {
+                            moves.push(ChessMove::regular(from_index, diagonal_idx, Some(piece)))
+                        }
+                        _ => {
+                            // can't move to the diagonal if it is empty (except en passant) or if we have a piece there
+                        }
+                    }
+                }
+            }
+            None => {
+                // we are at the end of the board,
+                // this should not happen i think?
+                // either way there are no valid pawn moves from here
+                return Vec::new();
+            }
+        }
+
+        // en passant
+
+        moves
     }
 
     fn undo_last_move(&mut self) {
@@ -984,6 +1043,7 @@ impl Default for ChessBoard {
 #[cfg(test)]
 mod tests {
     use consts::*;
+    use Color::*;
 
     use super::*;
 
@@ -1314,7 +1374,6 @@ mod tests {
 
     #[test]
     fn test_moves_to_opponents_piece() {
-        use Color::*;
         let mut board = ChessBoard::default();
 
         board.move_piece(D1, E5).unwrap();
@@ -1395,6 +1454,55 @@ mod tests {
             vec![
                 ChessMove::regular(E5, D4, board[D4].piece()),
                 ChessMove::regular(E5, C3, board[C3].piece()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_valid_pawn_moves_from() {
+        let mut board = ChessBoard::default();
+
+        print_board("initial", &board);
+
+        assert_eq!(
+            board.valid_pawn_moves_from(D2, White),
+            vec![
+                ChessMove::regular(D2, D3, board[D3].piece()),
+                ChessMove::regular(D2, D4, board[D4].piece())
+            ]
+        );
+
+        board.move_piece(D2, D4).unwrap();
+
+        print_board("white pawn moved forward", &board);
+
+        assert_eq!(
+            board.valid_pawn_moves_from(D4, White),
+            vec![ChessMove::regular(D4, D5, board[D5].piece())]
+        );
+
+        board.move_piece(E7, E5).unwrap();
+
+        print_board("black pawn moved forward", &board);
+
+        assert_eq!(
+            board.valid_pawn_moves_from(D4, White),
+            vec![
+                ChessMove::regular(D4, D5, board[D5].piece()),
+                ChessMove::regular(D4, E5, board[E5].piece())
+            ]
+        );
+
+        board.move_piece(C7, C5).unwrap();
+
+        print_board("second black pawn moved forward", &board);
+
+        assert_eq!(
+            board.valid_pawn_moves_from(D4, White),
+            vec![
+                ChessMove::regular(D4, D5, board[D5].piece()),
+                ChessMove::regular(D4, C5, board[C5].piece()),
+                ChessMove::regular(D4, E5, board[E5].piece()),
             ]
         );
     }
