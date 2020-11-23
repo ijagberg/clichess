@@ -1,6 +1,6 @@
 use crate::{
     consts, file::FileIter, rank::RankIter, square::Square, CastleMove, ChessIndex, ChessMove,
-    Color, EnPassantMove, File, Piece, PieceType, PromotionMove, Rank,
+    Color, EnPassantMove, File, Piece, PieceType, PromotionMove, Rank, RegularMove,
 };
 use std::{
     convert::TryFrom,
@@ -425,9 +425,7 @@ impl ChessBoard {
 
         let mut actual_valid_moves = Vec::new();
         for valid_move in valid_moves {
-            clone
-                .execute_move(valid_move.clone())
-                .expect("invalid move attempted");
+            clone.execute_move(valid_move);
             if clone.is_king_checked(piece_color) {
                 // can't actually make this move
             } else {
@@ -542,20 +540,17 @@ impl ChessBoard {
         }
     }
 
-    pub fn execute_move(&mut self, chess_move: ChessMove) -> Result<(), MovePieceError> {
+    pub fn execute_move(&mut self, chess_move: ChessMove) -> Option<Piece> {
         let prev = self.clone();
         let result = match chess_move {
-            ChessMove::Regular(regular_move) => {
-                self.move_piece(regular_move.from(), regular_move.to())
+            ChessMove::Regular(regular_move) => self.execute_regular_move(regular_move),
+            ChessMove::Castle(castle_move) => {
+                self.execute_castle_move(castle_move);
+                None
             }
-            ChessMove::Castle(_) => unimplemented!(),
-            ChessMove::Promotion(promotion_move) => {
-                self.execute_promotion_move(promotion_move).unwrap();
-                Ok(())
-            }
+            ChessMove::Promotion(promotion_move) => self.execute_promotion_move(promotion_move),
             ChessMove::EnPassant(en_passant_move) => {
-                self.execute_en_passant_move(en_passant_move).unwrap();
-                Ok(())
+                Some(self.execute_en_passant_move(en_passant_move))
             }
         };
 
@@ -564,48 +559,35 @@ impl ChessBoard {
         result
     }
 
-    fn execute_promotion_move(
-        &mut self,
-        promotion_move: PromotionMove,
-    ) -> Result<Option<Piece>, MovePieceError> {
-        let pawn = match self[promotion_move.from()].take_piece() {
-            Some(p) => p,
-            None => {
-                todo!();
-            }
-        };
+    fn execute_promotion_move(&mut self, promotion_move: PromotionMove) -> Option<Piece> {
+        let pawn = self[promotion_move.from()].take_piece().unwrap();
 
         let taken_piece = self[promotion_move.to()].take_piece();
 
         self[promotion_move.to()]
             .set_piece(Piece::new(promotion_move.promotion_piece(), pawn.color()));
 
-        Ok(taken_piece)
+        taken_piece
     }
 
-    fn execute_en_passant_move(
-        &mut self,
-        en_passant_move: EnPassantMove,
-    ) -> Result<Piece, MovePieceError> {
+    fn execute_en_passant_move(&mut self, en_passant_move: EnPassantMove) -> Piece {
         if self[en_passant_move.to()].piece().is_some() {
             // invalid move
-            todo!();
+            panic!();
         }
 
-        let mut pawn = match self[en_passant_move.from()].take_piece() {
-            Some(pawn) => pawn,
-            None => todo!(),
-        };
+        let mut pawn = self[en_passant_move.from()].take_piece().unwrap();
 
-        let taken_pawn = match self[en_passant_move.taken_pawn_idx()].take_piece() {
-            Some(taken_pawn) => taken_pawn,
-            None => todo!(),
-        };
+        let taken_pawn = self[en_passant_move.taken_pawn_idx()].take_piece().unwrap();
+
+        if !taken_pawn.is_pawn() {
+            panic!();
+        }
 
         pawn.add_index_to_history(en_passant_move.to());
         self[en_passant_move.to()].set_piece(pawn);
 
-        Ok(taken_pawn)
+        taken_pawn
     }
 
     fn execute_castle_move(&mut self, castle_move: CastleMove) {
@@ -616,6 +598,12 @@ impl ChessBoard {
             .take_piece()
             .expect("must be a rook at from index");
 
+        if self[castle_move.king_to()].piece().is_some()
+            || self[castle_move.rook_to()].piece().is_some()
+        {
+            panic!();
+        }
+
         king.add_index_to_history(castle_move.king_to());
         rook.add_index_to_history(castle_move.rook_to());
 
@@ -623,10 +611,42 @@ impl ChessBoard {
         self[castle_move.rook_to()].set_piece(rook);
     }
 
+    fn execute_regular_move<T>(&mut self, regular_move: T) -> Option<Piece>
+    where
+        RegularMove: From<T>,
+    {
+        let regular_move = RegularMove::from(regular_move);
+        let from = regular_move.from_idx();
+        let to = regular_move.to_idx();
+
+        let mut from_piece = self[from].take_piece().unwrap();
+
+        let to_piece = self[to].take_piece();
+        if let Some(piece) = &to_piece {
+            if piece.color() == from_piece.color() {
+                panic!();
+            }
+        }
+
+        if from_piece.is_king() {
+            match from_piece.color() {
+                Color::Black => {
+                    self.black_king = to;
+                }
+                Color::White => {
+                    self.white_king = to;
+                }
+            }
+        }
+        from_piece.add_index_to_history(to);
+        self[to].set_piece(from_piece);
+        to_piece
+    }
+
     pub fn is_move_valid(&self, chess_move: &ChessMove) -> bool {
         match chess_move {
             ChessMove::Regular(regular) => {
-                let valid_moves_from = self.valid_moves_from(regular.from());
+                let valid_moves_from = self.valid_moves_from(regular.from_idx());
                 valid_moves_from.contains(&chess_move)
             }
             ChessMove::Castle(_) => unimplemented!(),
@@ -911,42 +931,6 @@ impl ChessBoard {
 
         moves
     }
-
-    /// Move a piece from `from` to `to`
-    fn move_piece<T>(&mut self, from: T, to: T) -> Result<(), MovePieceError>
-    where
-        T: Into<ChessIndex>,
-    {
-        let from: ChessIndex = from.into();
-        let to: ChessIndex = to.into();
-
-        // check if there is actually a piece at from
-        let from_piece = match self[from].piece() {
-            Some(p) => p,
-            None => return Err(MovePieceError::NoPieceToMove(from)),
-        };
-
-        if let Some(piece) = self[to].piece() {
-            if piece.color() == from_piece.color() {
-                return Err(MovePieceError::OwnPieceAtTarget);
-            }
-        }
-
-        let mut from_piece = self[from].take_piece().unwrap();
-        if from_piece.is_king() {
-            match from_piece.color() {
-                Color::Black => {
-                    self.black_king = to;
-                }
-                Color::White => {
-                    self.white_king = to;
-                }
-            }
-        }
-        from_piece.add_index_to_history(to);
-        self[to].set_piece(from_piece);
-        Ok(())
-    }
 }
 
 impl Display for ChessBoard {
@@ -1139,13 +1123,13 @@ mod tests {
     #[test]
     fn test_rook_moves() {
         let mut board = ChessBoard::default();
-        board.move_piece(A2, E4).unwrap();
+        board.execute_regular_move(RegularMove::new(A2, E4));
 
         let targets: Vec<ChessIndex> = board
             .valid_rook_moves_from(E4, Color::White)
             .iter()
             .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to(),
+                ChessMove::Regular(reg) => reg.to_idx(),
                 _ => unreachable!(),
             })
             .collect();
@@ -1157,13 +1141,13 @@ mod tests {
     fn test_knight_moves() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(G1, E4).unwrap();
+        board.execute_regular_move((G1, E4));
 
         let targets: Vec<ChessIndex> = board
             .valid_knight_moves_from(B1, Color::White)
             .iter()
             .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to(),
+                ChessMove::Regular(reg) => reg.to_idx(),
                 _ => unreachable!(),
             })
             .collect();
@@ -1174,7 +1158,7 @@ mod tests {
             .valid_knight_moves_from(E4, Color::White)
             .iter()
             .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to(),
+                ChessMove::Regular(reg) => reg.to_idx(),
                 _ => unreachable!(),
             })
             .collect();
@@ -1185,13 +1169,13 @@ mod tests {
     #[test]
     fn test_bishop_moves() {
         let mut board = ChessBoard::default();
-        board.move_piece(F1, F4).unwrap();
+        board.execute_regular_move((F1, F4));
 
         let targets: Vec<ChessIndex> = board
             .valid_bishop_moves_from(F4, Color::White)
             .iter()
             .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to(),
+                ChessMove::Regular(reg) => reg.to_idx(),
                 _ => unreachable!(),
             })
             .collect();
@@ -1202,7 +1186,7 @@ mod tests {
     #[test]
     fn test_queen_moves() {
         let mut board = ChessBoard::default();
-        board.move_piece(D1, D4).unwrap();
+        board.execute_regular_move((D1, D4));
 
         let actual = board.valid_moves_from(D4);
         let expected = vec![
@@ -1234,12 +1218,14 @@ mod tests {
     #[test]
     fn test_king_moves() {
         let mut board = ChessBoard::default();
-        println!("{}\n", board);
+
+        print_board("initial", &board);
 
         assert_eq!(board.valid_king_moves_from(E1, Color::White), vec![]);
 
-        board.move_piece(E1, E4).unwrap();
-        println!("{}\n", board);
+        board.execute_regular_move((E1, E4));
+        print_board("setup", &board);
+
         assert_eq!(
             board.valid_king_moves_from(E4, Color::White),
             vec![
@@ -1254,8 +1240,8 @@ mod tests {
             ]
         );
 
-        board.move_piece(F7, F6).unwrap();
-        println!("{}\n", board);
+        board.execute_regular_move((F7, F6));
+        print_board("-", &board);
         assert_eq!(
             board.valid_moves_from(E4),
             vec![
@@ -1274,10 +1260,10 @@ mod tests {
     fn test_is_checked_by_pawn() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(E1, E4).unwrap();
+        board.execute_regular_move((E1, E4));
         assert_eq!(board.is_checked_by_pawn(E4, Color::White), None);
 
-        board.move_piece(D7, D5).unwrap();
+        board.execute_regular_move((D7, D5));
         assert_eq!(board.is_checked_by_pawn(E4, Color::White), Some(D5));
     }
 
@@ -1285,10 +1271,10 @@ mod tests {
     fn test_is_checked_by_knight() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(E1, E4).unwrap();
+        board.execute_regular_move((E1, E4));
         assert_eq!(board.is_checked_by_knight(E4, Color::White), None);
 
-        board.move_piece(G8, F6).unwrap();
+        board.execute_regular_move((G8, F6));
         assert_eq!(board.is_checked_by_knight(E4, Color::White), Some(F6));
     }
 
@@ -1296,13 +1282,13 @@ mod tests {
     fn test_is_checked_by_bishop() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(E1, E4).unwrap();
+        board.execute_regular_move((E1, E4));
         assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
 
-        board.move_piece(C8, G6).unwrap();
+        board.execute_regular_move((C8, G6));
         assert_eq!(board.is_checked_by_bishop(E4, Color::White), Some(G6));
 
-        board.move_piece(F2, F5).unwrap();
+        board.execute_regular_move((F2, F5));
         assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
     }
 
@@ -1310,13 +1296,13 @@ mod tests {
     fn test_is_checked_by_rook() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(E1, E4).unwrap();
+        board.execute_regular_move((E1, E4));
         assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
 
-        board.move_piece(H8, H4).unwrap();
+        board.execute_regular_move((H8, H4));
         assert_eq!(board.is_checked_by_rook(E4, Color::White), Some(H4));
 
-        board.move_piece(G2, G4).unwrap();
+        board.execute_regular_move((G2, G4));
         assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
     }
 
@@ -1324,16 +1310,16 @@ mod tests {
     fn test_is_checked_by_queen() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(E1, E4).unwrap();
+        board.execute_regular_move((E1, E4));
         assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
 
-        board.move_piece(D8, C6).unwrap();
+        board.execute_regular_move((D8, C6));
         assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(C6));
 
-        board.move_piece(C6, B4).unwrap();
+        board.execute_regular_move((C6, B4));
         assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(B4));
 
-        board.move_piece(C1, D4).unwrap();
+        board.execute_regular_move((C1, D4));
         assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
     }
 
@@ -1343,7 +1329,7 @@ mod tests {
 
         assert_eq!(board.valid_moves_from(A1), vec![]);
 
-        board.move_piece(A1, A3).unwrap();
+        board.execute_regular_move((A1, A3));
         assert_eq!(
             board.valid_moves_from(A3),
             vec![
@@ -1361,8 +1347,8 @@ mod tests {
             ]
         );
 
-        board.move_piece(E8, A6).unwrap();
-        board.move_piece(A8, A5).unwrap();
+        board.execute_regular_move((E8, A6));
+        board.execute_regular_move((A8, A5));
         assert_eq!(
             board.valid_moves_from(A5),
             vec![ChessMove::regular(A5, A4), ChessMove::regular(A5, A3)]
@@ -1383,10 +1369,10 @@ mod tests {
 
         assert_eq!(board[E2].piece().unwrap().history(), &vec![E2]);
 
-        board.move_piece(E2, E3).unwrap();
+        board.execute_regular_move((E2, E3));
         assert_eq!(board[E3].piece().unwrap().history(), &vec![E2, E3]);
 
-        board.move_piece(E3, E4).unwrap();
+        board.execute_regular_move((E3, E4));
         assert_eq!(board[E4].piece().unwrap().history(), &vec![E2, E3, E4]);
     }
 
@@ -1406,7 +1392,7 @@ mod tests {
         board[G2].take_piece();
 
         // move black rook to check square between white king and white rook
-        board.move_piece(H8, G6).unwrap();
+        board.execute_regular_move((H8, G6));
 
         assert_eq!(
             board.can_castle(E1, H1),
@@ -1422,7 +1408,7 @@ mod tests {
         ); // can castle now
 
         // move white rook to G1
-        board.move_piece(H1, G1).unwrap();
+        board.execute_regular_move((H1, G1));
 
         assert_eq!(
             board.can_castle(E1, G1),
@@ -1462,7 +1448,7 @@ mod tests {
     fn test_moves_to_opponents_piece() {
         let mut board = ChessBoard::default();
 
-        board.move_piece(D1, E5).unwrap();
+        board.execute_regular_move((D1, E5));
 
         // increasing rank
         assert_eq!(
@@ -1537,7 +1523,7 @@ mod tests {
             vec![ChessMove::regular(D2, D3), ChessMove::regular(D2, D4)]
         );
 
-        board.move_piece(D2, D4).unwrap();
+        board.execute_regular_move((D2, D4));
 
         print_board("white pawn moved forward", &board);
 
@@ -1546,7 +1532,7 @@ mod tests {
             vec![ChessMove::regular(D4, D5)]
         );
 
-        board.move_piece(E7, E5).unwrap();
+        board.execute_regular_move((E7, E5));
 
         print_board("black pawn moved forward", &board);
 
@@ -1555,7 +1541,7 @@ mod tests {
             vec![ChessMove::regular(D4, D5), ChessMove::regular(D4, E5)]
         );
 
-        board.move_piece(C7, C5).unwrap();
+        board.execute_regular_move((C7, C5));
 
         print_board("second black pawn moved forward", &board);
 
@@ -1576,7 +1562,7 @@ mod tests {
         print_board("initial", &board);
 
         board[A7].clear();
-        board.move_piece(D2, A7).unwrap();
+        board.execute_regular_move((D2, A7));
 
         print_board("white pawn in promotion position", &board);
 
@@ -1591,7 +1577,7 @@ mod tests {
             ]
         );
 
-        board.execute_move(actual_valid_moves[1]).unwrap();
+        board.execute_move(actual_valid_moves[1]);
         print_board("promoted to rook on B8", &board);
         assert_eq!(board[B8].piece().unwrap().piece_type(), PieceType::Rook);
     }
@@ -1602,8 +1588,8 @@ mod tests {
 
         print_board("initial", &board);
 
-        board.move_piece(D2, D5).unwrap();
-        board.move_piece(E7, E5).unwrap();
+        board.execute_regular_move((D2, D5));
+        board.execute_regular_move((E7, E5));
 
         print_board("black pawn moves two steps", &board);
 

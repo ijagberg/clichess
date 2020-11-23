@@ -42,12 +42,18 @@ impl RegularMove {
         Self(from, to)
     }
 
-    pub fn from(&self) -> ChessIndex {
+    pub fn from_idx(&self) -> ChessIndex {
         self.0
     }
 
-    pub fn to(&self) -> ChessIndex {
+    pub fn to_idx(&self) -> ChessIndex {
         self.1
+    }
+}
+
+impl From<(ChessIndex, ChessIndex)> for RegularMove {
+    fn from((from, to): (ChessIndex, ChessIndex)) -> Self {
+        RegularMove::new(from, to)
     }
 }
 
