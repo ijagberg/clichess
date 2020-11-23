@@ -1123,18 +1123,26 @@ mod tests {
     #[test]
     fn test_rook_moves() {
         let mut board = ChessBoard::default();
-        board.execute_regular_move(RegularMove::new(A2, E4));
+        board.execute_regular_move(RegularMove::new(A1, E4));
 
-        let targets: Vec<ChessIndex> = board
-            .valid_rook_moves_from(E4, Color::White)
-            .iter()
-            .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to_idx(),
-                _ => unreachable!(),
-            })
-            .collect();
+        print_board("rook in center", &board);
 
-        assert_eq!(vec![E5, E6, E7, E3, F4, G4, H4, D4, C4, B4, A4,], targets)
+        assert_eq!(
+            board.valid_rook_moves_from(E4, White),
+            vec![
+                ChessMove::regular(E4, E5),
+                ChessMove::regular(E4, E6),
+                ChessMove::regular(E4, E7),
+                ChessMove::regular(E4, E3),
+                ChessMove::regular(E4, F4),
+                ChessMove::regular(E4, G4),
+                ChessMove::regular(E4, H4),
+                ChessMove::regular(E4, D4),
+                ChessMove::regular(E4, C4),
+                ChessMove::regular(E4, B4),
+                ChessMove::regular(E4, A4),
+            ]
+        );
     }
 
     #[test]
@@ -1143,44 +1151,41 @@ mod tests {
 
         board.execute_regular_move((G1, E4));
 
-        let targets: Vec<ChessIndex> = board
-            .valid_knight_moves_from(B1, Color::White)
-            .iter()
-            .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to_idx(),
-                _ => unreachable!(),
-            })
-            .collect();
+        print_board("knight in center", &board);
 
-        assert_eq!(vec![C3, A3], targets);
-
-        let targets: Vec<ChessIndex> = board
-            .valid_knight_moves_from(E4, Color::White)
-            .iter()
-            .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to_idx(),
-                _ => unreachable!(),
-            })
-            .collect();
-
-        assert_eq!(vec![G5, G3, C5, C3, F6, D6,], targets);
+        assert_eq!(
+            board.valid_knight_moves_from(E4, White),
+            vec![
+                ChessMove::regular(E4, G5),
+                ChessMove::regular(E4, G3),
+                ChessMove::regular(E4, C5),
+                ChessMove::regular(E4, C3),
+                ChessMove::regular(E4, F6),
+                ChessMove::regular(E4, D6),
+            ]
+        );
     }
 
     #[test]
     fn test_bishop_moves() {
         let mut board = ChessBoard::default();
+
         board.execute_regular_move((F1, F4));
 
-        let targets: Vec<ChessIndex> = board
-            .valid_bishop_moves_from(F4, Color::White)
-            .iter()
-            .map(|m| match m {
-                ChessMove::Regular(reg) => reg.to_idx(),
-                _ => unreachable!(),
-            })
-            .collect();
+        print_board("bishop on F4", &board);
 
-        assert_eq!(vec![G5, H6, G3, E5, D6, C7, E3,], targets);
+        assert_eq!(
+            board.valid_bishop_moves_from(F4, White),
+            vec![
+                ChessMove::regular(F4, G5),
+                ChessMove::regular(F4, H6),
+                ChessMove::regular(F4, G3),
+                ChessMove::regular(F4, E5),
+                ChessMove::regular(F4, D6),
+                ChessMove::regular(F4, C7),
+                ChessMove::regular(F4, E3),
+            ]
+        );
     }
 
     #[test]
@@ -1188,31 +1193,32 @@ mod tests {
         let mut board = ChessBoard::default();
         board.execute_regular_move((D1, D4));
 
-        let actual = board.valid_moves_from(D4);
-        let expected = vec![
-            ChessMove::regular(D4, D5),
-            ChessMove::regular(D4, D6),
-            ChessMove::regular(D4, D7),
-            ChessMove::regular(D4, D3),
-            ChessMove::regular(D4, E4),
-            ChessMove::regular(D4, F4),
-            ChessMove::regular(D4, G4),
-            ChessMove::regular(D4, H4),
-            ChessMove::regular(D4, C4),
-            ChessMove::regular(D4, B4),
-            ChessMove::regular(D4, A4),
-            ChessMove::regular(D4, E5),
-            ChessMove::regular(D4, F6),
-            ChessMove::regular(D4, G7),
-            ChessMove::regular(D4, E3),
-            ChessMove::regular(D4, C5),
-            ChessMove::regular(D4, B6),
-            ChessMove::regular(D4, A7),
-            ChessMove::regular(D4, C3),
-        ];
-        for (actual, expected) in actual.into_iter().zip(expected.into_iter()) {
-            assert_eq!(actual, expected);
-        }
+        print_board("queen on D4", &board);
+
+        assert_eq!(
+            board.valid_queen_moves_from(D4, White),
+            vec![
+                ChessMove::regular(D4, D5),
+                ChessMove::regular(D4, D6),
+                ChessMove::regular(D4, D7),
+                ChessMove::regular(D4, D3),
+                ChessMove::regular(D4, E4),
+                ChessMove::regular(D4, F4),
+                ChessMove::regular(D4, G4),
+                ChessMove::regular(D4, H4),
+                ChessMove::regular(D4, C4),
+                ChessMove::regular(D4, B4),
+                ChessMove::regular(D4, A4),
+                ChessMove::regular(D4, E5),
+                ChessMove::regular(D4, F6),
+                ChessMove::regular(D4, G7),
+                ChessMove::regular(D4, E3),
+                ChessMove::regular(D4, C5),
+                ChessMove::regular(D4, B6),
+                ChessMove::regular(D4, A7),
+                ChessMove::regular(D4, C3),
+            ]
+        );
     }
 
     #[test]
@@ -1221,13 +1227,14 @@ mod tests {
 
         print_board("initial", &board);
 
-        assert_eq!(board.valid_king_moves_from(E1, Color::White), vec![]);
+        assert_eq!(board.valid_king_moves_from(E1, White), vec![]);
 
         board.execute_regular_move((E1, E4));
-        print_board("setup", &board);
+
+        print_board("king on E4", &board);
 
         assert_eq!(
-            board.valid_king_moves_from(E4, Color::White),
+            board.valid_king_moves_from(E4, White),
             vec![
                 ChessMove::regular(E4, F4),
                 ChessMove::regular(E4, D4),
@@ -1261,10 +1268,16 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.execute_regular_move((E1, E4));
-        assert_eq!(board.is_checked_by_pawn(E4, Color::White), None);
+
+        print_board("king on E4", &board);
+
+        assert_eq!(board.is_checked_by_pawn(E4, White), None);
 
         board.execute_regular_move((D7, D5));
-        assert_eq!(board.is_checked_by_pawn(E4, Color::White), Some(D5));
+
+        print_board("pawn checking king", &board);
+
+        assert_eq!(board.is_checked_by_pawn(E4, White), Some(D5));
     }
 
     #[test]
@@ -1272,10 +1285,16 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.execute_regular_move((E1, E4));
-        assert_eq!(board.is_checked_by_knight(E4, Color::White), None);
+
+        print_board("king on E4", &board);
+
+        assert_eq!(board.is_checked_by_knight(E4, White), None);
 
         board.execute_regular_move((G8, F6));
-        assert_eq!(board.is_checked_by_knight(E4, Color::White), Some(F6));
+
+        print_board("knight checking from F6", &board);
+
+        assert_eq!(board.is_checked_by_knight(E4, White), Some(F6));
     }
 
     #[test]
@@ -1283,13 +1302,22 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.execute_regular_move((E1, E4));
-        assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
+
+        print_board("king on E4", &board);
+
+        assert_eq!(board.is_checked_by_bishop(E4, White), None);
 
         board.execute_regular_move((C8, G6));
-        assert_eq!(board.is_checked_by_bishop(E4, Color::White), Some(G6));
+
+        print_board("bishop checking from G6", &board);
+
+        assert_eq!(board.is_checked_by_bishop(E4, White), Some(G6));
 
         board.execute_regular_move((F2, F5));
-        assert_eq!(board.is_checked_by_bishop(E4, Color::White), None);
+
+        print_board("white bishop blocks the check", &board);
+
+        assert_eq!(board.is_checked_by_bishop(E4, White), None);
     }
 
     #[test]
@@ -1297,13 +1325,22 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.execute_regular_move((E1, E4));
-        assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
+
+        print_board("king on E4", &board);
+
+        assert_eq!(board.is_checked_by_rook(E4, White), None);
 
         board.execute_regular_move((H8, H4));
-        assert_eq!(board.is_checked_by_rook(E4, Color::White), Some(H4));
+
+        print_board("rook checking from H4", &board);
+
+        assert_eq!(board.is_checked_by_rook(E4, White), Some(H4));
 
         board.execute_regular_move((G2, G4));
-        assert_eq!(board.is_checked_by_rook(E4, Color::White), None);
+
+        print_board("white pawn blocks the check", &board);
+
+        assert_eq!(board.is_checked_by_rook(E4, White), None);
     }
 
     #[test]
@@ -1311,56 +1348,28 @@ mod tests {
         let mut board = ChessBoard::default();
 
         board.execute_regular_move((E1, E4));
-        assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
+
+        print_board("king on E4", &board);
+
+        assert_eq!(board.is_checked_by_queen(E4, White), None);
 
         board.execute_regular_move((D8, C6));
-        assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(C6));
+
+        print_board("queen checking from C6", &board);
+
+        assert_eq!(board.is_checked_by_queen(E4, White), Some(C6));
 
         board.execute_regular_move((C6, B4));
-        assert_eq!(board.is_checked_by_queen(E4, Color::White), Some(B4));
+
+        print_board("queen checking from B4", &board);
+
+        assert_eq!(board.is_checked_by_queen(E4, White), Some(B4));
 
         board.execute_regular_move((C1, D4));
-        assert_eq!(board.is_checked_by_queen(E4, Color::White), None);
-    }
 
-    #[test]
-    fn test_valid_moves_from() {
-        let mut board = ChessBoard::default();
+        print_board("white bishop blocking check", &board);
 
-        assert_eq!(board.valid_moves_from(A1), vec![]);
-
-        board.execute_regular_move((A1, A3));
-        assert_eq!(
-            board.valid_moves_from(A3),
-            vec![
-                ChessMove::regular(A3, A4),
-                ChessMove::regular(A3, A5),
-                ChessMove::regular(A3, A6),
-                ChessMove::regular(A3, A7),
-                ChessMove::regular(A3, B3),
-                ChessMove::regular(A3, C3),
-                ChessMove::regular(A3, D3),
-                ChessMove::regular(A3, E3),
-                ChessMove::regular(A3, F3),
-                ChessMove::regular(A3, G3),
-                ChessMove::regular(A3, H3),
-            ]
-        );
-
-        board.execute_regular_move((E8, A6));
-        board.execute_regular_move((A8, A5));
-        assert_eq!(
-            board.valid_moves_from(A5),
-            vec![ChessMove::regular(A5, A4), ChessMove::regular(A5, A3)]
-        );
-    }
-
-    #[test]
-    fn test_is_move_valid() {
-        // let board = ChessBoard::default();
-
-        // assert!(board.is_move_valid(Move::new(E2, E4)));
-        // assert!(board.is_move_valid(Move::new(A1, A3)));
+        assert_eq!(board.is_checked_by_queen(E4, White), None);
     }
 
     #[test]
