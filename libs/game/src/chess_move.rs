@@ -1,23 +1,19 @@
-use crate::{ChessBoard, ChessIndex, Piece, PieceType};
+use crate::{ChessBoard, ChessIndex, PieceType};
 
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum ChessMove<'a> {
-    Regular(RegularMove<'a>),
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum ChessMove {
+    Regular(RegularMove),
     Castle(CastleMove),
-    Promotion(PromotionMove<'a>),
+    Promotion(PromotionMove),
+    EnPassant(EnPassantMove),
 }
 
-impl<'a> ChessMove<'a> {
-    pub fn regular(from: ChessIndex, to: ChessIndex, piece: Option<&'a Piece>) -> ChessMove {
-        ChessMove::Regular(RegularMove::new(from, to, piece))
+impl ChessMove {
+    pub fn regular(from: ChessIndex, to: ChessIndex) -> ChessMove {
+        ChessMove::Regular(RegularMove::new(from, to))
     }
 
-    pub fn promotions(
-        from: ChessIndex,
-        to: ChessIndex,
-        pawn: &'a Piece,
-        taken_piece: Option<&'a Piece>,
-    ) -> Vec<ChessMove<'a>> {
+    pub fn promotions(from: ChessIndex, to: ChessIndex) -> Vec<ChessMove> {
         vec![
             PieceType::Knight,
             PieceType::Rook,
@@ -25,33 +21,25 @@ impl<'a> ChessMove<'a> {
             PieceType::Bishop,
         ]
         .into_iter()
-        .map(|pt| ChessMove::promotion(from, to, pawn, Piece::new(pt, pawn.color()), taken_piece))
+        .map(|pt| ChessMove::promotion(from, to, pt))
         .collect()
     }
 
-    pub fn promotion(
-        from: ChessIndex,
-        to: ChessIndex,
-        pawn: &'a Piece,
-        promotion_piece: Piece,
-        taken_piece: Option<&'a Piece>,
-    ) -> ChessMove<'a> {
-        ChessMove::Promotion(PromotionMove::new(
-            from,
-            to,
-            pawn,
-            promotion_piece,
-            taken_piece,
-        ))
+    pub fn promotion(from: ChessIndex, to: ChessIndex, promotion_piece: PieceType) -> ChessMove {
+        ChessMove::Promotion(PromotionMove::new(from, to, promotion_piece))
+    }
+
+    pub fn en_passant(from: ChessIndex, to: ChessIndex, taken_pawn_idx: ChessIndex) -> ChessMove {
+        ChessMove::EnPassant(EnPassantMove::new(from, to, taken_pawn_idx))
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct RegularMove<'a>(ChessIndex, ChessIndex, Option<&'a Piece>);
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub struct RegularMove(ChessIndex, ChessIndex);
 
-impl<'a> RegularMove<'a> {
-    pub fn new(from: ChessIndex, to: ChessIndex, piece: Option<&'a Piece>) -> Self {
-        Self(from, to, piece)
+impl RegularMove {
+    pub fn new(from: ChessIndex, to: ChessIndex) -> Self {
+        Self(from, to)
     }
 
     pub fn from(&self) -> ChessIndex {
@@ -61,13 +49,9 @@ impl<'a> RegularMove<'a> {
     pub fn to(&self) -> ChessIndex {
         self.1
     }
-
-    pub fn piece(&self) -> Option<&Piece> {
-        self.2
-    }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct CastleMove(ChessIndex, ChessIndex, ChessIndex, ChessIndex);
 
 impl CastleMove {
@@ -119,18 +103,12 @@ impl CastleMove {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct PromotionMove<'a>(ChessIndex, ChessIndex, &'a Piece, Piece, Option<&'a Piece>);
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub struct PromotionMove(ChessIndex, ChessIndex, PieceType);
 
-impl<'a> PromotionMove<'a> {
-    pub fn new(
-        from: ChessIndex,
-        to: ChessIndex,
-        pawn: &'a Piece,
-        promotion_piece: Piece,
-        taken_piece: Option<&'a Piece>,
-    ) -> Self {
-        Self(from, to, pawn, promotion_piece, taken_piece)
+impl PromotionMove {
+    pub fn new(from: ChessIndex, to: ChessIndex, promotion_piece: PieceType) -> Self {
+        Self(from, to, promotion_piece)
     }
 
     pub fn from(&self) -> ChessIndex {
@@ -141,15 +119,28 @@ impl<'a> PromotionMove<'a> {
         self.1
     }
 
-    pub fn pawn(&self) -> &Piece {
-        &self.2
+    pub fn promotion_piece(&self) -> PieceType {
+        self.2
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub struct EnPassantMove(ChessIndex, ChessIndex, ChessIndex);
+
+impl EnPassantMove {
+    pub fn new(from: ChessIndex, to: ChessIndex, taken_pawn_idx: ChessIndex) -> Self {
+        Self(from, to, taken_pawn_idx)
     }
 
-    pub fn promotion_piece(&self) -> &Piece {
-        &self.3
+    pub fn from(&self) -> ChessIndex {
+        self.0
     }
 
-    pub fn taken_piece(&self) -> Option<&Piece> {
-        self.4
+    pub fn to(&self) -> ChessIndex {
+        self.1
+    }
+
+    pub fn taken_pawn_idx(&self) -> ChessIndex {
+        self.2
     }
 }
