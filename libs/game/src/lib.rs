@@ -53,6 +53,7 @@ pub struct Game {
     white_taken: Vec<Piece>,
     black_taken: Vec<Piece>,
     history: Vec<ChessBoard>,
+    move_history: Vec<ChessMove>,
 }
 
 impl Game {
@@ -551,23 +552,48 @@ impl Game {
                     file.map(|file| ChessIndex::new(file, pawn_idx.rank()))
                 })
                 .collect();
+
             for other_idx in left_right {
                 if let Some(other_piece) = self.board[other_idx].piece() {
                     if other_piece.is_pawn()
                         && other_piece.color() == pawn_color.opponent()
-                        && other_piece
-                            .previous_index()
-                            .expect("can't be a pawn on this rank if it has made no moves")
-                            .rank()
-                            == (pawn_idx.rank() + 2_i32 * forward_offset).expect("if the given pawn is on the en passant rank, we can move two steps forward")
+                        && self.can_en_passant(other_idx)
                     {
-                        moves.push(ChessMove::en_passant(pawn_idx, ChessIndex::new(other_idx.file(),(other_idx.rank() + forward_offset).unwrap()), other_idx));
+                        moves.push(ChessMove::en_passant(
+                            pawn_idx,
+                            ChessIndex::new(
+                                other_idx.file(),
+                                (other_idx.rank() + forward_offset).unwrap(),
+                            ),
+                            other_idx,
+                        ));
                     }
                 }
             }
         }
 
         moves
+    }
+
+    /// Checks
+    fn can_en_passant(&self, pawn_idx: ChessIndex) -> bool {
+        if self
+            .board
+            .piece_at(pawn_idx)
+            .map(|p| !p.is_pawn())
+            .unwrap_or(true)
+        {
+            return false;
+        }
+
+        match dbg!(self.move_history.last()) {
+            Some(ChessMove::Regular(rm)) => {
+                rm.to_idx() == pawn_idx
+                    && (i32::from(&rm.to_idx().rank()) - i32::from(&rm.from_idx().rank())).abs()
+                        == 2
+            }
+            _ => false,
+        }
     }
 
     fn valid_king_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
@@ -767,6 +793,7 @@ impl Game {
             ChessMove::EnPassant(en_passant_move) => self.execute_en_passant_move(en_passant_move),
         }
 
+        self.move_history.push(chess_move);
         self.history.push(prev);
     }
 
@@ -1090,6 +1117,7 @@ impl Default for Game {
             white_taken: Vec::new(),
             black_taken: Vec::new(),
             history: Vec::new(),
+            move_history: Vec::new(),
         }
     }
 }
@@ -1595,8 +1623,8 @@ mod tests {
 
         print_board("initial", &game);
 
-        game.execute_regular_move((D2, D5));
-        game.execute_regular_move((E7, E5));
+        game.execute_move(ChessMove::regular(D2, D5));
+        game.execute_move(ChessMove::regular(E7, E5));
 
         print_board("black pawn moves two steps", &game);
 
@@ -1614,6 +1642,28 @@ mod tests {
         game.execute_move(en_passant_move);
 
         print_board("after en passant", &game);
+    }
+
+    #[test]
+    fn test_can_en_passant() {
+        let mut game = Game::new();
+
+        let white_pawn = game.board.take_piece(E2).unwrap();
+        game.board.set_piece(E5, white_pawn);
+        game.execute_move(ChessMove::regular(F7, F5));
+
+        assert!(game.can_en_passant(F5));
+
+        game.execute_move(ChessMove::regular(A7, A6));
+
+        assert!(!game.can_en_passant(F5));
+
+        let mut game = Game::new();
+        let white_pawn = game.board.take_piece(D2).unwrap();
+        game.board.set_piece(D5, white_pawn);
+        game.execute_move(ChessMove::regular(E7, E5));
+
+        assert!(game.can_en_passant(E5));
     }
 
     #[test]
