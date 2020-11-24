@@ -1,4 +1,4 @@
-use crate::{ChessBoard, ChessIndex, PieceType};
+use crate::{ChessIndex, PieceType};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum ChessMove {
@@ -85,28 +85,6 @@ impl CastleMove {
     pub fn rook_to(&self) -> ChessIndex {
         self.3
     }
-
-    pub fn validate(&self, board: &ChessBoard) -> Result<(), ()> {
-        if board[self.king_from()]
-            .piece()
-            .map(|p| !p.is_king())
-            .unwrap_or(true)
-        {
-            // from is not a king
-            return Err(());
-        }
-
-        if board[self.rook_from()]
-            .piece()
-            .map(|p| !p.is_rook())
-            .unwrap_or(true)
-        {
-            // to is not a rook
-            return Err(());
-        }
-
-        todo!()
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -117,11 +95,11 @@ impl PromotionMove {
         Self(from, to, promotion_piece)
     }
 
-    pub fn from(&self) -> ChessIndex {
+    pub fn from_idx(&self) -> ChessIndex {
         self.0
     }
 
-    pub fn to(&self) -> ChessIndex {
+    pub fn to_idx(&self) -> ChessIndex {
         self.1
     }
 
@@ -138,11 +116,11 @@ impl EnPassantMove {
         Self(from, to, taken_pawn_idx)
     }
 
-    pub fn from(&self) -> ChessIndex {
+    pub fn from_idx(&self) -> ChessIndex {
         self.0
     }
 
-    pub fn to(&self) -> ChessIndex {
+    pub fn to_idx(&self) -> ChessIndex {
         self.1
     }
 
