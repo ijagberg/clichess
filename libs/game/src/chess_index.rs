@@ -108,7 +108,7 @@ impl Display for ChessIndex {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum ParseChessIndexError {
     LengthNot2,
     InvalidFile(char),
@@ -133,6 +133,24 @@ impl Error for ParseChessIndexError {}
 mod tests {
     use super::*;
     use crate::consts::*;
+
+    #[test]
+    fn test_from_str() {
+        assert_eq!(ChessIndex::from_str("A1").unwrap(), A1);
+        assert_eq!(ChessIndex::from_str("H5").unwrap(), H5);
+        assert_eq!(
+            ChessIndex::from_str("11"),
+            Err(ParseChessIndexError::InvalidFile('1'))
+        );
+        assert_eq!(
+            ChessIndex::from_str("AA"),
+            Err(ParseChessIndexError::InvalidRank('A'))
+        );
+        assert_eq!(
+            ChessIndex::from_str("A2 "),
+            Err(ParseChessIndexError::LengthNot2)
+        );
+    }
 
     #[test]
     fn test_indices_between() {

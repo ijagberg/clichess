@@ -50,17 +50,14 @@ pub struct Game {
     board: ChessBoard,
     white_king: ChessIndex,
     black_king: ChessIndex,
+    white_taken: Vec<Piece>,
+    black_taken: Vec<Piece>,
     history: Vec<ChessBoard>,
 }
 
 impl Game {
     pub fn new() -> Self {
-        Self {
-            board: ChessBoard::default(),
-            history: Vec::new(),
-            white_king: E1,
-            black_king: E7,
-        }
+        Self::default()
     }
     /// Check if a square is in check
     pub fn is_checked(&self, index: ChessIndex, color: Color) -> bool {
@@ -573,187 +570,6 @@ impl Game {
         moves
     }
 
-    pub fn execute_move(&mut self, chess_move: ChessMove) -> Option<Piece> {
-        let prev = self.board.clone();
-        let result = match chess_move {
-            ChessMove::Regular(regular_move) => self.execute_regular_move(regular_move),
-            ChessMove::Castle(castle_move) => {
-                self.execute_castle_move(castle_move);
-                None
-            }
-            ChessMove::Promotion(promotion_move) => self.execute_promotion_move(promotion_move),
-            ChessMove::EnPassant(en_passant_move) => {
-                Some(self.execute_en_passant_move(en_passant_move))
-            }
-        };
-
-        self.history.push(prev);
-
-        result
-    }
-
-    fn execute_promotion_move(&mut self, promotion_move: PromotionMove) -> Option<Piece> {
-        let pawn = self.board[promotion_move.from_idx()].take_piece().unwrap();
-
-        let taken_piece = self.board[promotion_move.to_idx()].take_piece();
-
-        self.board[promotion_move.to_idx()]
-            .set_piece(Piece::new(promotion_move.promotion_piece(), pawn.color()));
-
-        taken_piece
-    }
-
-    fn execute_en_passant_move(&mut self, en_passant_move: EnPassantMove) -> Piece {
-        if self.board[en_passant_move.to_idx()].piece().is_some() {
-            // invalid move
-            panic!();
-        }
-
-        let mut pawn = self.board[en_passant_move.from_idx()].take_piece().unwrap();
-
-        let taken_pawn = self.board[en_passant_move.taken_pawn_idx()]
-            .take_piece()
-            .unwrap();
-
-        if !taken_pawn.is_pawn() {
-            panic!();
-        }
-
-        pawn.add_index_to_history(en_passant_move.to_idx());
-        self.board[en_passant_move.to_idx()].set_piece(pawn);
-
-        taken_pawn
-    }
-
-    fn execute_castle_move(&mut self, castle_move: CastleMove) {
-        let mut king = self.board[castle_move.king_from()]
-            .take_piece()
-            .expect("must be a king at from index");
-        let mut rook = self.board[castle_move.rook_from()]
-            .take_piece()
-            .expect("must be a rook at from index");
-
-        if self.board[castle_move.king_to()].piece().is_some()
-            || self.board[castle_move.rook_to()].piece().is_some()
-        {
-            panic!();
-        }
-
-        king.add_index_to_history(castle_move.king_to());
-        rook.add_index_to_history(castle_move.rook_to());
-
-        self.board[castle_move.king_to()].set_piece(king);
-        self.board[castle_move.rook_to()].set_piece(rook);
-    }
-
-    fn execute_regular_move<T>(&mut self, regular_move: T) -> Option<Piece>
-    where
-        RegularMove: From<T>,
-    {
-        let regular_move = RegularMove::from(regular_move);
-        let from = regular_move.from_idx();
-        let to = regular_move.to_idx();
-
-        let mut from_piece = self.board[from]
-            .take_piece()
-            .expect(&format!("no piece on from: {}", from));
-
-        let to_piece = self.board[to].take_piece();
-        if let Some(piece) = &to_piece {
-            if piece.color() == from_piece.color() {
-                panic!();
-            }
-        }
-
-        if from_piece.is_king() {
-            match from_piece.color() {
-                Color::Black => {
-                    self.black_king = to;
-                }
-                Color::White => {
-                    self.white_king = to;
-                }
-            }
-        }
-        from_piece.add_index_to_history(to);
-        self.board[to].set_piece(from_piece);
-        to_piece
-    }
-
-    pub fn is_move_valid(&self, chess_move: ChessMove) -> bool {
-        let from_idx = match chess_move {
-            ChessMove::Regular(reg) => reg.from_idx(),
-            ChessMove::Castle(cas) => cas.king_from(),
-            ChessMove::Promotion(prom) => prom.from_idx(),
-            ChessMove::EnPassant(en) => en.from_idx(),
-        };
-        let valid_moves_from = self.valid_moves_from(from_idx);
-        valid_moves_from.contains(&chess_move)
-    }
-
-    fn can_castle(
-        &self,
-        king_index: ChessIndex,
-        rook_index: ChessIndex,
-    ) -> Result<CastleMove, CanCastleError> {
-        let (king, rook) = match (
-            self.board[king_index].piece(),
-            self.board[rook_index].piece(),
-        ) {
-            (Some(king), Some(rook))
-                if king.is_king() && rook.is_rook() && king.color() == rook.color() =>
-            {
-                (king, rook)
-            }
-            _ => {
-                // either there is no piece at `king_index` or the piece is not a king
-                return Err(CanCastleError::WrongPieces);
-            }
-        };
-
-        let color = king.color();
-
-        if king.has_made_move() {
-            return Err(CanCastleError::PieceHasMadeMove(king_index));
-        }
-        if rook.has_made_move() {
-            return Err(CanCastleError::PieceHasMadeMove(rook_index));
-        }
-
-        // check that squares between the king and rook are empty and not in check
-        let indices_between = ChessIndex::indices_between(king_index, rook_index);
-        debug_assert!(
-            indices_between.len() == 4 || indices_between.len() == 5,
-            format!("{:?}", (indices_between.len(), king_index, rook_index))
-        );
-        for index_in_between in indices_between {
-            if index_in_between != king_index
-                && index_in_between != rook_index
-                && self.board[index_in_between].piece().is_some()
-            {
-                // square between the king and rook is not empty
-                return Err(CanCastleError::PiecesBetween);
-            }
-            if self.is_checked(index_in_between, color) {
-                return Err(CanCastleError::SquareInCheck(index_in_between));
-            }
-        }
-
-        let (king_to, rook_to) = if king_index.file() < rook_index.file() {
-            (
-                ChessIndex::new((king_index.file() + 2).unwrap(), king_index.rank()),
-                ChessIndex::new((king_index.file() + 1).unwrap(), rook_index.rank()),
-            )
-        } else {
-            (
-                ChessIndex::new((king_index.file() - 2).unwrap(), king_index.rank()),
-                ChessIndex::new((king_index.file() - 1).unwrap(), rook_index.rank()),
-            )
-        };
-
-        Ok(CastleMove::new(king_index, king_to, rook_index, rook_to))
-    }
-
     fn valid_king_moves_from(&self, from_index: ChessIndex, piece_color: Color) -> Vec<ChessMove> {
         let mut moves: Vec<ChessMove> = Vec::new();
 
@@ -930,6 +746,195 @@ impl Game {
         moves
     }
 
+    fn add_taken_piece(&mut self, player: Color, piece: Piece) {
+        match player {
+            Color::Black => {
+                self.black_taken.push(piece);
+            }
+            Color::White => {
+                self.white_taken.push(piece);
+            }
+        }
+    }
+
+    pub fn execute_move(&mut self, chess_move: ChessMove) {
+        let prev = self.board.clone();
+
+        match chess_move {
+            ChessMove::Regular(regular_move) => self.execute_regular_move(regular_move),
+            ChessMove::Castle(castle_move) => self.execute_castle_move(castle_move),
+            ChessMove::Promotion(promotion_move) => self.execute_promotion_move(promotion_move),
+            ChessMove::EnPassant(en_passant_move) => self.execute_en_passant_move(en_passant_move),
+        }
+
+        self.history.push(prev);
+    }
+
+    fn execute_promotion_move(&mut self, promotion_move: PromotionMove) {
+        let pawn = self.board[promotion_move.from_idx()].take_piece().unwrap();
+
+        let taken_piece = self.board[promotion_move.to_idx()].take_piece();
+
+        if let Some(taken_piece) = taken_piece {
+            self.add_taken_piece(pawn.color(), taken_piece);
+        }
+
+        self.board[promotion_move.to_idx()]
+            .set_piece(Piece::new(promotion_move.promotion_piece(), pawn.color()));
+    }
+
+    fn execute_en_passant_move(&mut self, en_passant_move: EnPassantMove) {
+        if self.board[en_passant_move.to_idx()].piece().is_some() {
+            // invalid move
+            panic!();
+        }
+
+        let mut pawn = self.board[en_passant_move.from_idx()].take_piece().unwrap();
+
+        let taken_pawn = self.board[en_passant_move.taken_pawn_idx()]
+            .take_piece()
+            .unwrap();
+
+        if !taken_pawn.is_pawn() {
+            panic!();
+        }
+
+        pawn.add_index_to_history(en_passant_move.to_idx());
+        self.board[en_passant_move.to_idx()].set_piece(pawn);
+    }
+
+    fn execute_castle_move(&mut self, castle_move: CastleMove) {
+        let mut king = self.board[castle_move.king_from()]
+            .take_piece()
+            .expect("must be a king at from index");
+        let mut rook = self.board[castle_move.rook_from()]
+            .take_piece()
+            .expect("must be a rook at from index");
+
+        if self.board[castle_move.king_to()].piece().is_some()
+            || self.board[castle_move.rook_to()].piece().is_some()
+        {
+            panic!();
+        }
+
+        king.add_index_to_history(castle_move.king_to());
+        rook.add_index_to_history(castle_move.rook_to());
+
+        self.board[castle_move.king_to()].set_piece(king);
+        self.board[castle_move.rook_to()].set_piece(rook);
+    }
+
+    fn execute_regular_move<T>(&mut self, regular_move: T)
+    where
+        RegularMove: From<T>,
+    {
+        let regular_move = RegularMove::from(regular_move);
+        let from = regular_move.from_idx();
+        let to = regular_move.to_idx();
+
+        let mut from_piece = self.board[from]
+            .take_piece()
+            .expect(&format!("no piece on from: {}", from));
+
+        let to_piece = self.board[to].take_piece();
+        if let Some(piece) = &to_piece {
+            if piece.color() == from_piece.color() {
+                panic!();
+            }
+        }
+
+        if let Some(taken_piece) = to_piece {
+            self.add_taken_piece(from_piece.color(), taken_piece);
+        }
+
+        if from_piece.is_king() {
+            match from_piece.color() {
+                Color::Black => {
+                    self.black_king = to;
+                }
+                Color::White => {
+                    self.white_king = to;
+                }
+            }
+        }
+        from_piece.add_index_to_history(to);
+        self.board[to].set_piece(from_piece);
+    }
+
+    pub fn is_move_valid(&self, chess_move: ChessMove) -> bool {
+        let from_idx = match chess_move {
+            ChessMove::Regular(reg) => reg.from_idx(),
+            ChessMove::Castle(cas) => cas.king_from(),
+            ChessMove::Promotion(prom) => prom.from_idx(),
+            ChessMove::EnPassant(en) => en.from_idx(),
+        };
+        let valid_moves_from = self.valid_moves_from(from_idx);
+        valid_moves_from.contains(&chess_move)
+    }
+
+    fn can_castle(
+        &self,
+        king_index: ChessIndex,
+        rook_index: ChessIndex,
+    ) -> Result<CastleMove, CanCastleError> {
+        let (king, rook) = match (
+            self.board[king_index].piece(),
+            self.board[rook_index].piece(),
+        ) {
+            (Some(king), Some(rook))
+                if king.is_king() && rook.is_rook() && king.color() == rook.color() =>
+            {
+                (king, rook)
+            }
+            _ => {
+                // either there is no piece at `king_index` or the piece is not a king
+                return Err(CanCastleError::WrongPieces);
+            }
+        };
+
+        let color = king.color();
+
+        if king.has_made_move() {
+            return Err(CanCastleError::PieceHasMadeMove(king_index));
+        }
+        if rook.has_made_move() {
+            return Err(CanCastleError::PieceHasMadeMove(rook_index));
+        }
+
+        // check that squares between the king and rook are empty and not in check
+        let indices_between = ChessIndex::indices_between(king_index, rook_index);
+        debug_assert!(
+            indices_between.len() == 4 || indices_between.len() == 5,
+            format!("{:?}", (indices_between.len(), king_index, rook_index))
+        );
+        for index_in_between in indices_between {
+            if index_in_between != king_index
+                && index_in_between != rook_index
+                && self.board[index_in_between].piece().is_some()
+            {
+                // square between the king and rook is not empty
+                return Err(CanCastleError::PiecesBetween);
+            }
+            if self.is_checked(index_in_between, color) {
+                return Err(CanCastleError::SquareInCheck(index_in_between));
+            }
+        }
+
+        let (king_to, rook_to) = if king_index.file() < rook_index.file() {
+            (
+                ChessIndex::new((king_index.file() + 2).unwrap(), king_index.rank()),
+                ChessIndex::new((king_index.file() + 1).unwrap(), rook_index.rank()),
+            )
+        } else {
+            (
+                ChessIndex::new((king_index.file() - 2).unwrap(), king_index.rank()),
+                ChessIndex::new((king_index.file() - 1).unwrap(), rook_index.rank()),
+            )
+        };
+
+        Ok(CastleMove::new(king_index, king_to, rook_index, rook_to))
+    }
+
     /// Creates and consumes an iterator which steps by the given `file_step` and `rank_step` arguments until some other piece is reached
     fn moves_to_opponents_piece(
         &self,
@@ -969,6 +974,13 @@ impl Game {
         }
 
         moves
+    }
+
+    fn score(&self, player: Color) -> u8 {
+        match player {
+            Color::Black => self.black_taken.iter().map(|p| piece_value(p)).sum(),
+            Color::White => self.white_taken.iter().map(|p| piece_value(p)).sum(),
+        }
     }
 }
 
@@ -1016,6 +1028,70 @@ impl Display for MovePieceError {
         };
 
         write!(f, "{}", output)
+    }
+}
+
+fn piece_value(p: &Piece) -> u8 {
+    match p.piece_type() {
+        PieceType::Pawn => 1,
+        PieceType::Knight => 3,
+        PieceType::Bishop => 3,
+        PieceType::Rook => 5,
+        PieceType::Queen => 9,
+        PieceType::King => 0,
+    }
+}
+
+impl Default for Game {
+    fn default() -> Self {
+        use crate::Color::*;
+
+        let mut board = ChessBoard::default();
+
+        board.set_piece(A1, Piece::rook(White));
+        board.set_piece(B1, Piece::knight(White));
+        board.set_piece(C1, Piece::bishop(White));
+        board.set_piece(D1, Piece::queen(White));
+        board.set_piece(E1, Piece::king(White));
+        board.set_piece(F1, Piece::bishop(White));
+        board.set_piece(G1, Piece::knight(White));
+        board.set_piece(H1, Piece::rook(White));
+
+        board.set_piece(A2, Piece::pawn(White));
+        board.set_piece(B2, Piece::pawn(White));
+        board.set_piece(C2, Piece::pawn(White));
+        board.set_piece(D2, Piece::pawn(White));
+        board.set_piece(E2, Piece::pawn(White));
+        board.set_piece(F2, Piece::pawn(White));
+        board.set_piece(G2, Piece::pawn(White));
+        board.set_piece(H2, Piece::pawn(White));
+
+        board.set_piece(A7, Piece::pawn(Black));
+        board.set_piece(B7, Piece::pawn(Black));
+        board.set_piece(C7, Piece::pawn(Black));
+        board.set_piece(D7, Piece::pawn(Black));
+        board.set_piece(E7, Piece::pawn(Black));
+        board.set_piece(F7, Piece::pawn(Black));
+        board.set_piece(G7, Piece::pawn(Black));
+        board.set_piece(H7, Piece::pawn(Black));
+
+        board.set_piece(A8, Piece::rook(Black));
+        board.set_piece(B8, Piece::knight(Black));
+        board.set_piece(C8, Piece::bishop(Black));
+        board.set_piece(D8, Piece::queen(Black));
+        board.set_piece(E8, Piece::king(Black));
+        board.set_piece(F8, Piece::bishop(Black));
+        board.set_piece(G8, Piece::knight(Black));
+        board.set_piece(H8, Piece::rook(Black));
+
+        Self {
+            board,
+            white_king: E1,
+            black_king: E7,
+            white_taken: Vec::new(),
+            black_taken: Vec::new(),
+            history: Vec::new(),
+        }
     }
 }
 
@@ -1505,7 +1581,7 @@ mod tests {
 
         let en_passant_move = valid_moves.remove(1);
 
-        game.execute_move(en_passant_move).unwrap();
+        game.execute_move(en_passant_move);
 
         print_board("after en passant", &game);
     }

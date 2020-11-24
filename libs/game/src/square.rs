@@ -7,6 +7,10 @@ pub struct Square {
 }
 
 impl Square {
+    pub fn color(&self) -> Color {
+        self.color
+    }
+
     pub fn take_piece(&mut self) -> Option<Piece> {
         self.piece.take()
     }

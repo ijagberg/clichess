@@ -14,7 +14,8 @@ impl ChessBoard {
         self[idx].piece()
     }
 
-    pub fn set_piece(&mut self, idx: ChessIndex, piece: Piece) -> Option<Piece> {
+    pub fn set_piece(&mut self, idx: ChessIndex, mut piece: Piece) -> Option<Piece> {
+        piece.add_index_to_history(idx);
         if let Some(taken_piece) = self[idx].take_piece() {
             self[idx].set_piece(piece);
             Some(taken_piece)
@@ -22,6 +23,10 @@ impl ChessBoard {
             self[idx].set_piece(piece);
             None
         }
+    }
+
+    pub fn take_piece(&mut self, idx: ChessIndex) -> Option<Piece> {
+        self[idx].take_piece()
     }
 }
 
@@ -64,23 +69,23 @@ impl Default for ChessBoard {
     fn default() -> Self {
         let squares = [
             // rank 1
-            Square::occupied(Color::Black, Piece::rook(Color::White)), // a1
-            Square::occupied(Color::White, Piece::knight(Color::White)), // b1
-            Square::occupied(Color::Black, Piece::bishop(Color::White)), // c1
-            Square::occupied(Color::White, Piece::queen(Color::White)), // d1
-            Square::occupied(Color::Black, Piece::king(Color::White)), // e1
-            Square::occupied(Color::White, Piece::bishop(Color::White)), // f1
-            Square::occupied(Color::Black, Piece::knight(Color::White)), // g1
-            Square::occupied(Color::White, Piece::rook(Color::White)), // h1
+            Square::empty(Color::Black), // a1
+            Square::empty(Color::White), // b1
+            Square::empty(Color::Black), // c1
+            Square::empty(Color::White), // d1
+            Square::empty(Color::Black), // e1
+            Square::empty(Color::White), // f1
+            Square::empty(Color::Black), // g1
+            Square::empty(Color::White), // h1
             // rank 2
-            Square::occupied(Color::White, Piece::pawn(Color::White)), // a2
-            Square::occupied(Color::Black, Piece::pawn(Color::White)), // b2
-            Square::occupied(Color::White, Piece::pawn(Color::White)), // c2
-            Square::occupied(Color::Black, Piece::pawn(Color::White)), // d2
-            Square::occupied(Color::White, Piece::pawn(Color::White)), // e2
-            Square::occupied(Color::Black, Piece::pawn(Color::White)), // f2
-            Square::occupied(Color::White, Piece::pawn(Color::White)), // g2
-            Square::occupied(Color::Black, Piece::pawn(Color::White)), // h2
+            Square::empty(Color::White), // a2
+            Square::empty(Color::Black), // b2
+            Square::empty(Color::White), // c2
+            Square::empty(Color::Black), // d2
+            Square::empty(Color::White), // e2
+            Square::empty(Color::Black), // f2
+            Square::empty(Color::White), // g2
+            Square::empty(Color::Black), // h2
             // rank 3
             Square::empty(Color::Black), // a3
             Square::empty(Color::White), // b3
@@ -118,36 +123,56 @@ impl Default for ChessBoard {
             Square::empty(Color::White), // g6
             Square::empty(Color::Black), // h6
             // rank 7
-            Square::occupied(Color::Black, Piece::pawn(Color::Black)), // a7
-            Square::occupied(Color::White, Piece::pawn(Color::Black)), // b7
-            Square::occupied(Color::Black, Piece::pawn(Color::Black)), // c7
-            Square::occupied(Color::White, Piece::pawn(Color::Black)), // d7
-            Square::occupied(Color::Black, Piece::pawn(Color::Black)), // e7
-            Square::occupied(Color::White, Piece::pawn(Color::Black)), // f7
-            Square::occupied(Color::Black, Piece::pawn(Color::Black)), // g7
-            Square::occupied(Color::White, Piece::pawn(Color::Black)), // h7
+            Square::empty(Color::Black), // a7
+            Square::empty(Color::White), // b7
+            Square::empty(Color::Black), // c7
+            Square::empty(Color::White), // d7
+            Square::empty(Color::Black), // e7
+            Square::empty(Color::White), // f7
+            Square::empty(Color::Black), // g7
+            Square::empty(Color::White), // h7
             // rank 8
-            Square::occupied(Color::White, Piece::rook(Color::Black)), // a8
-            Square::occupied(Color::Black, Piece::knight(Color::Black)), // b8
-            Square::occupied(Color::White, Piece::bishop(Color::Black)), // c8
-            Square::occupied(Color::Black, Piece::queen(Color::Black)), // d8
-            Square::occupied(Color::White, Piece::king(Color::Black)), // e8
-            Square::occupied(Color::Black, Piece::bishop(Color::Black)), // f8
-            Square::occupied(Color::White, Piece::knight(Color::Black)), // g8
-            Square::occupied(Color::Black, Piece::rook(Color::Black)), // h8
+            Square::empty(Color::White), // a8
+            Square::empty(Color::Black), // b8
+            Square::empty(Color::White), // c8
+            Square::empty(Color::Black), // d8
+            Square::empty(Color::White), // e8
+            Square::empty(Color::Black), // f8
+            Square::empty(Color::White), // g8
+            Square::empty(Color::Black), // h8
         ];
 
-        let mut s = Self { squares };
+        Self { squares }
+    }
+}
 
-        for file in FileIter::start_at(File::A) {
-            for rank in RankIter::start_at(Rank::First) {
-                let idx = ChessIndex::new(file, rank);
-                if let Some(p) = s[idx].piece_mut() {
-                    p.add_index_to_history(idx);
-                }
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{consts::*, PieceType};
 
-        s
+    #[test]
+    fn test_set_piece() {
+        let mut board = ChessBoard::default();
+
+        assert!(board[E4].piece().is_none());
+        assert!(board[E5].piece().is_none());
+
+        board[E4].set_piece(Piece::new(PieceType::Bishop, Color::White));
+        assert!(board[E4].piece().is_some());
+
+        board[E5].set_piece(Piece::new(PieceType::King, Color::White)); // we can place more kings if we wanted to
+        assert!(board[E5].piece().is_some());
+    }
+
+    #[test]
+    fn test_take_piece() {
+        let mut board = ChessBoard::default();
+
+        assert!(board.take_piece(E2).is_none());
+
+        board.set_piece(E2, Piece::pawn(Color::White));
+
+        assert!(board.take_piece(E2).unwrap().is_pawn());
     }
 }
