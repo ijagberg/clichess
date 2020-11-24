@@ -149,20 +149,21 @@ impl Default for ChessBoard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{consts::*, PieceType};
+    use crate::consts::*;
+    use crate::Color::*;
 
     #[test]
     fn test_set_piece() {
         let mut board = ChessBoard::default();
 
-        assert!(board[E4].piece().is_none());
-        assert!(board[E5].piece().is_none());
+        assert!(board.piece_at(E4).is_none());
+        assert!(board.piece_at(E5).is_none());
 
-        board[E4].set_piece(Piece::new(PieceType::Bishop, Color::White));
-        assert!(board[E4].piece().is_some());
+        board.set_piece(E4, Piece::bishop(White));
+        assert!(board.piece_at(E4).is_some());
 
-        board[E5].set_piece(Piece::new(PieceType::King, Color::White)); // we can place more kings if we wanted to
-        assert!(board[E5].piece().is_some());
+        board.set_piece(E5, Piece::king(White)); // we can place more kings if we wanted to
+        assert!(board.piece_at(E5).is_some());
     }
 
     #[test]

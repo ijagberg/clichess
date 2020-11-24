@@ -779,8 +779,10 @@ impl Game {
             self.add_taken_piece(pawn.color(), taken_piece);
         }
 
-        self.board[promotion_move.to_idx()]
-            .set_piece(Piece::new(promotion_move.promotion_piece(), pawn.color()));
+        self.board.set_piece(
+            promotion_move.to_idx(),
+            Piece::new(promotion_move.promotion_piece(), pawn.color()),
+        );
     }
 
     fn execute_en_passant_move(&mut self, en_passant_move: EnPassantMove) {
@@ -789,7 +791,7 @@ impl Game {
             panic!();
         }
 
-        let mut pawn = self.board[en_passant_move.from_idx()].take_piece().unwrap();
+        let pawn = self.board[en_passant_move.from_idx()].take_piece().unwrap();
 
         let taken_pawn = self.board[en_passant_move.taken_pawn_idx()]
             .take_piece()
@@ -799,15 +801,16 @@ impl Game {
             panic!();
         }
 
-        pawn.add_index_to_history(en_passant_move.to_idx());
-        self.board[en_passant_move.to_idx()].set_piece(pawn);
+        self.add_taken_piece(pawn.color(), taken_pawn);
+
+        self.board.set_piece(en_passant_move.to_idx(), pawn);
     }
 
     fn execute_castle_move(&mut self, castle_move: CastleMove) {
-        let mut king = self.board[castle_move.king_from()]
+        let king = self.board[castle_move.king_from()]
             .take_piece()
             .expect("must be a king at from index");
-        let mut rook = self.board[castle_move.rook_from()]
+        let rook = self.board[castle_move.rook_from()]
             .take_piece()
             .expect("must be a rook at from index");
 
@@ -817,11 +820,8 @@ impl Game {
             panic!();
         }
 
-        king.add_index_to_history(castle_move.king_to());
-        rook.add_index_to_history(castle_move.rook_to());
-
-        self.board[castle_move.king_to()].set_piece(king);
-        self.board[castle_move.rook_to()].set_piece(rook);
+        self.board.set_piece(castle_move.king_to(), king);
+        self.board.set_piece(castle_move.rook_to(), rook);
     }
 
     fn execute_regular_move<T>(&mut self, regular_move: T)
@@ -832,7 +832,7 @@ impl Game {
         let from = regular_move.from_idx();
         let to = regular_move.to_idx();
 
-        let mut from_piece = self.board[from]
+        let from_piece = self.board[from]
             .take_piece()
             .expect(&format!("no piece on from: {}", from));
 
@@ -857,8 +857,7 @@ impl Game {
                 }
             }
         }
-        from_piece.add_index_to_history(to);
-        self.board[to].set_piece(from_piece);
+        self.board.set_piece(to, from_piece);
     }
 
     pub fn is_move_valid(&self, chess_move: ChessMove) -> bool {
@@ -1557,6 +1556,37 @@ mod tests {
             game.board[B8].piece().unwrap().piece_type(),
             PieceType::Rook
         );
+    }
+
+    #[test]
+    fn test_pawn_promotion_2() {
+        let mut game = Game::new();
+
+        game.board = ChessBoard::default();
+        game.board.set_piece(E1, Piece::king(White));
+        game.board.set_piece(E7, Piece::pawn(White));
+        game.board.set_piece(E8, Piece::rook(Black));
+        game.board.set_piece(D8, Piece::bishop(Black));
+        game.board.set_piece(H8, Piece::king(Black));
+
+        print_board(
+            "white pawn can't promote because it would check the white king",
+            &game,
+        );
+
+        let actual_valid_moves = game.valid_moves_from(E7);
+        assert_eq!(actual_valid_moves, vec![]);
+
+        game.board.take_piece(E8).unwrap();
+
+        print_board("white pawn can promote", &game);
+
+        let actual_valid_moves = game.valid_moves_from(E7);
+
+        let mut expected_moves = Vec::new();
+        expected_moves.append(&mut ChessMove::promotions(E7, E8));
+        expected_moves.append(&mut ChessMove::promotions(E7, D8));
+        assert_eq!(actual_valid_moves, expected_moves);
     }
 
     #[test]
