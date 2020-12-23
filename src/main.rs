@@ -1,6 +1,8 @@
 mod modes;
 
-use game::*;
+use std::collections::HashSet;
+
+use chess::ChessBoard;
 use modes::PlayLocalOpts;
 use structopt::StructOpt;
 
@@ -28,42 +30,12 @@ fn main() {
 
 fn print_whites_perspective(board: &ChessBoard) {
     println!("---");
-    let mut lines = Vec::new();
-    for rank in RankIter::start_at(Rank::First) {
-        let mut pieces = Vec::new();
-        for file in FileIter::start_at(File::A) {
-            let chess_index = ChessIndex::from((file, rank));
-            let output = match board[chess_index].piece() {
-                Some(p) => format!("{}", p),
-                None => " ".to_string(),
-            };
-
-            pieces.push(output);
-        }
-
-        lines.push(pieces.join(" "));
-    }
-    println!("{}", lines.join("\n"));
+    println!("{}", chess::fmt::whites_perspective(board, &HashSet::new()));
     println!("---");
 }
 
 fn print_blacks_perspective(board: &ChessBoard) {
     println!("---");
-    let mut lines = Vec::new();
-    for rank in RankIter::start_at(Rank::First) {
-        let mut pieces = Vec::new();
-        for file in FileIter::start_at(File::H).rev() {
-            let chess_index = ChessIndex::from((file, rank));
-            let output = match board[chess_index].piece() {
-                Some(p) => format!("{}", p),
-                None => " ".to_string(),
-            };
-
-            pieces.push(output);
-        }
-
-        lines.push(pieces.join(" "));
-    }
-    println!("{}", lines.join("\n"));
+    println!("{}", chess::fmt::blacks_perspective(board, &HashSet::new()));
     println!("---");
 }
