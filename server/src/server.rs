@@ -15,7 +15,7 @@ impl Server {
         }
     }
 
-    pub async fn run(self, port: u8) {
+    pub async fn run(self, port: u32) {
         let listener = TcpListener::bind(format!("0.0.0.0:{}", port))
             .await
             .unwrap();

@@ -5,7 +5,8 @@ use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 struct Opts {
-    port: u8,
+    #[structopt(long)]
+    port: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
