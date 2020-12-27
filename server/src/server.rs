@@ -15,8 +15,10 @@ impl Server {
         }
     }
 
-    pub async fn run(self) {
-        let listener = TcpListener::bind("0.0.0.0").await.unwrap();
+    pub async fn run(self, port: u8) {
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", port))
+            .await
+            .unwrap();
 
         loop {
             // Asynchronously wait for an inbound socket.

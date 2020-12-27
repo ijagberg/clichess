@@ -17,5 +17,5 @@ async fn main() {
     let opts = Opts::from_args();
 
     let runner = server::Server::new();
-    runner.run().await;
+    runner.run(opts.port).await;
 }
