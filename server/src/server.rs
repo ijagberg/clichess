@@ -4,6 +4,8 @@ use async_std::net::TcpListener;
 use async_std::prelude::*;
 use async_std::task;
 
+use crate::ChessMessage;
+
 pub struct Server {
     games: HashMap<String, Game>,
 }
@@ -45,7 +47,12 @@ impl Server {
                 }
 
                 if let Ok(content) = String::from_utf8(buf) {
-                    println!("content: '{}'", content);
+                    let message: ChessMessage = serde_json::from_str(content.trim()).unwrap();
+                    match message {
+                        ChessMessage::Connect(conn) => {
+                            println!("connecting to room: {}", conn.room);
+                        }
+                    }
                 } else {
                     println!("invalid utf8");
                 }

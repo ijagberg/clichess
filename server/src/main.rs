@@ -10,7 +10,14 @@ struct Opts {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ConnectMessage {}
+enum ChessMessage {
+    Connect(ConnectMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ConnectMessage {
+    room: String,
+}
 
 #[async_std::main]
 async fn main() {
