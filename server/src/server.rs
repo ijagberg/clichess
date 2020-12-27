@@ -47,9 +47,10 @@ impl Server {
                 }
 
                 if let Ok(content) = String::from_utf8(buf) {
-                    let trimmed = content.trim();
+                    let mut trimmed = content.trim();
+                    trimmed = &trimmed[..trimmed.len() - 1];
                     println!("'{}'", trimmed);
-                    let message: ChessMessage = serde_json::from_str(content.trim()).unwrap();
+                    let message: ChessMessage = serde_json::from_str(trimmed).unwrap();
                     match message {
                         ChessMessage::Connect(conn) => {
                             println!("connecting to room: {}", conn.room);
