@@ -6,5 +6,8 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.3.14"
-chess = { git = "https://github.com/ijagberg/chess.git", branch = "main" }
-
+chess = { git = "https://github.com/ijagberg/chess.git", branch = "feature/uci", features = [
+    "fmt",
+    "ai",
+    "uci"
+] }

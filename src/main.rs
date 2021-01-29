@@ -3,7 +3,7 @@ mod modes;
 use std::collections::HashSet;
 
 use chess::ChessBoard;
-use modes::PlayLocalOpts;
+use modes::{ComputerPlayer, LocalPlayer, PlayLocalMode, PlayLocalOpts};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -21,10 +21,28 @@ fn main() {
     let opts: Opts = Opts::from_args();
 
     match opts.command {
-        Command::PlayLocal(opts) => {
-            let mut game = modes::PlayLocal::new(opts);
-            game.play().unwrap();
-        }
+        Command::PlayLocal(opts) => match opts.mode() {
+            PlayLocalMode::VsHuman => {
+                let mut game = modes::PlayLocal::new(opts, LocalPlayer::new(), LocalPlayer::new());
+                game.play().unwrap();
+            }
+            PlayLocalMode::VsComputerAsBlack => {
+                let mut game = modes::PlayLocal::new(
+                    opts,
+                    ComputerPlayer::new(chess::ai::Material {}),
+                    LocalPlayer::new(),
+                );
+                game.play().unwrap();
+            }
+            PlayLocalMode::VsComputerAsWhite => {
+                let mut game = modes::PlayLocal::new(
+                    opts,
+                    LocalPlayer::new(),
+                    ComputerPlayer::new(chess::ai::Material {}),
+                );
+                game.play().unwrap();
+            }
+        },
     }
 }
 

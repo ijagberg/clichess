@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::convert::Infallible;
+use std::{collections::HashMap, convert::Infallible};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;

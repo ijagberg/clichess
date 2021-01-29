@@ -1,20 +1,58 @@
-use chess::{ChessIndex, ChessMove, Color, Game};
-use std::{collections::HashMap, io, str::FromStr};
+use chess::{Color, Game};
+use std::str::FromStr;
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-pub struct PlayLocalOpts {}
+use super::Player;
 
-pub struct PlayLocal {
-    #[allow(unused)]
+#[derive(Debug, StructOpt)]
+pub struct PlayLocalOpts {
+    mode: PlayLocalMode,
+}
+
+impl PlayLocalOpts {
+    pub fn mode(&self) -> PlayLocalMode {
+        self.mode
+    }
+}
+
+#[derive(Debug, StructOpt, Clone, Copy)]
+pub enum PlayLocalMode {
+    VsHuman,
+    VsComputerAsBlack,
+    VsComputerAsWhite,
+}
+
+impl FromStr for PlayLocalMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "vs-human" => Ok(Self::VsHuman),
+            "vs-computer-as-black" => Ok(Self::VsComputerAsBlack),
+            "vs-computer-as-white" => Ok(Self::VsComputerAsWhite),
+            err => Err(format!("invalid mode: '{}'", err)),
+        }
+    }
+}
+
+pub struct PlayLocal<A, B> {
     opts: PlayLocalOpts,
+    white_player: A,
+    black_player: B,
+
     game: Game,
 }
 
-impl PlayLocal {
-    pub fn new(opts: PlayLocalOpts) -> Self {
+impl<A, B> PlayLocal<A, B>
+where
+    A: Player,
+    B: Player,
+{
+    pub fn new(opts: PlayLocalOpts, white_player: A, black_player: B) -> Self {
         Self {
             opts,
+            white_player,
+            black_player,
             game: Game::new(),
         }
     }
@@ -42,140 +80,15 @@ impl PlayLocal {
     }
 
     fn game_over(&self) -> bool {
-        self.game.is_king_checked(Color::Black) || self.game.is_king_checked(Color::White)
+        false
     }
 
     fn single_turn(&mut self, player: Color) {
-        loop {
-            let (from, moves) = self.choose_from_square(player);
-
-            let chosen_move = self.choose_move(player, from, moves);
-
-            self.game.make_move(chosen_move).unwrap();
-            break;
-        }
-    }
-
-    fn choose_move(
-        &self,
-        player: Color,
-        from: ChessIndex,
-        valid_moves: HashMap<ChessIndex, ChessMove>,
-    ) -> ChessMove {
-        let piece = self.game().board().piece_at(from).unwrap();
-
-        loop {
-            let to_index = input_chess_index(&format!(
-                "{} player, where do you want to move your {} on {}?",
-                player, piece, from
-            ));
-            if let Some(chosen_move) = valid_moves.get(&to_index) {
-                return *chosen_move;
-            } else {
-                println!("your {} on {} can't move to {}", piece, from, to_index);
-            }
-        }
-    }
-
-    fn choose_from_square(&self, player: Color) -> (ChessIndex, HashMap<ChessIndex, ChessMove>) {
-        let (from_index, valid_moves) = loop {
-            let from_index = input_chess_index(&format!(
-                "{} player, what piece to you want to move?",
-                player
-            ));
-            match self.game().board().piece_at(from_index) {
-                Some(piece) if piece.color() == player => {
-                    let valid_moves = self.game().valid_moves_from(from_index);
-                    if valid_moves.is_empty() {
-                        println!("your piece at {} has no valid moves", from_index);
-                        println!("enter a new index: ");
-                    } else {
-                        println!("these are the valid moves from {}", from_index);
-                        self.print_highlighted(player, &valid_moves);
-                    }
-                    break (from_index, valid_moves);
-                }
-                _ => {
-                    println!(
-                        "the {} square does not contain a piece that you can move",
-                        from_index
-                    );
-                    println!("enter a new index: ");
-                }
-            }
+        let chosen_move = match player {
+            Color::Black => self.black_player.get_move(self.game()),
+            Color::White => self.white_player.get_move(self.game()),
         };
 
-        (
-            from_index,
-            valid_moves
-                .into_iter()
-                .map(|m| match m {
-                    ChessMove::Regular(rm) => (rm.to_idx(), m),
-                    ChessMove::Castle(cm) => (cm.king_to(), m),
-                    ChessMove::Promotion(pm) => (pm.to_idx(), m),
-                    ChessMove::EnPassant(epm) => (epm.to_idx(), m),
-                })
-                .collect(),
-        )
-    }
-
-    fn print_highlighted(&self, player: Color, highlighted: &[ChessMove]) {
-        match player {
-            Color::Black => {
-                println!(
-                    "{}",
-                    chess::fmt::blacks_perspective(
-                        &self.game().board(),
-                        &highlighted
-                            .iter()
-                            .map(|vm| match vm {
-                                ChessMove::Regular(rm) => rm.to_idx(),
-                                ChessMove::Castle(cm) => cm.king_to(),
-                                ChessMove::Promotion(pm) => pm.to_idx(),
-                                ChessMove::EnPassant(em) => em.to_idx(),
-                            })
-                            .collect(),
-                    )
-                );
-            }
-            Color::White => {
-                println!(
-                    "{}",
-                    chess::fmt::whites_perspective(
-                        &self.game().board(),
-                        &highlighted
-                            .iter()
-                            .map(|vm| match vm {
-                                ChessMove::Regular(rm) => rm.to_idx(),
-                                ChessMove::Castle(cm) => cm.king_to(),
-                                ChessMove::Promotion(pm) => pm.to_idx(),
-                                ChessMove::EnPassant(em) => em.to_idx(),
-                            })
-                            .collect(),
-                    )
-                );
-            }
-        }
-    }
-}
-
-fn input_chess_index(reason: &str) -> ChessIndex {
-    let stdin = io::stdin();
-    loop {
-        println!("{}", reason);
-        let input = {
-            let mut buffer = String::new();
-            stdin.read_line(&mut buffer).unwrap();
-            buffer.trim().to_owned()
-        };
-
-        match ChessIndex::from_str(&input) {
-            Ok(idx) => {
-                return idx;
-            }
-            Err(err) => {
-                println!("invalid format of index: '{}'", err);
-            }
-        }
+        self.game.make_move(chosen_move).unwrap();
     }
 }

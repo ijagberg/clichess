@@ -1,7 +1,7 @@
 use crate::{ws, Client, Clients, Result};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use warp::{http::StatusCode, reply::json, ws::Message, Reply};
+use warp::{http::StatusCode, reply::json, Reply};
 
 #[derive(Deserialize, Debug)]
 pub struct ConnectRequest {

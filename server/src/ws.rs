@@ -52,13 +52,12 @@ async fn client_msg(id: &Uuid, msg: Message, clients: &Clients) {
         return;
     }
 
-    let topics_req: TopicsRequest = match from_str(&message) {
+    let _topics_req: TopicsRequest = match from_str(&message) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("error while parsing message to topics request: {}", e);
             return;
         }
     };
-
-    let mut locked = clients.write().await;
+    clients.write().await;
 }
