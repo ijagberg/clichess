@@ -1,10 +1,9 @@
-mod modes;
-
-use std::collections::HashSet;
-
 use chess::ChessBoard;
 use modes::PlayLocalOpts;
+use std::collections::HashSet;
 use structopt::StructOpt;
+
+mod modes;
 
 #[derive(StructOpt, Debug)]
 struct Opts {
