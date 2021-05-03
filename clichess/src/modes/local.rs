@@ -1,4 +1,5 @@
-use chess::{ChessIndex, ChessMove, Color, Game};
+use crate::fmt::*;
+use chess::prelude::*;
 use std::{collections::HashMap, io, str::FromStr};
 use structopt::StructOpt;
 
@@ -25,14 +26,14 @@ impl PlayLocal {
 
     pub fn play(&mut self) -> Result<(), ()> {
         loop {
-            crate::print_whites_perspective(self.game().board());
+            print_whites_perspective(self.game().board());
             self.single_turn(Color::White);
             if self.game_over() {
                 println!("White wins");
                 return Ok(());
             }
 
-            crate::print_blacks_perspective(&self.game().board());
+            print_blacks_perspective(&self.game().board());
             self.single_turn(Color::Black);
             if self.game_over() {
                 println!("Black wins");
@@ -42,7 +43,7 @@ impl PlayLocal {
     }
 
     fn game_over(&self) -> bool {
-        self.game.is_king_checked(Color::Black) || self.game.is_king_checked(Color::White)
+        self.game.is_over()
     }
 
     fn single_turn(&mut self, player: Color) {
@@ -59,45 +60,45 @@ impl PlayLocal {
     fn choose_move(
         &self,
         player: Color,
-        from: ChessIndex,
-        valid_moves: HashMap<ChessIndex, ChessMove>,
+        from: Position,
+        valid_moves: HashMap<Position, ChessMove>,
     ) -> ChessMove {
-        let piece = self.game().board().piece_at(from).unwrap();
+        let piece = self.game().board().get_piece(from).unwrap();
 
         loop {
             let to_index = input_chess_index(&format!(
-                "{} player, where do you want to move your {} on {}?",
+                "{} player, where do you want to move your {} on {:?}?",
                 player, piece, from
             ));
             if let Some(chosen_move) = valid_moves.get(&to_index) {
                 return *chosen_move;
             } else {
-                println!("your {} on {} can't move to {}", piece, from, to_index);
+                println!("your {} on {:?} can't move to {:?}", piece, from, to_index);
             }
         }
     }
 
-    fn choose_from_square(&self, player: Color) -> (ChessIndex, HashMap<ChessIndex, ChessMove>) {
+    fn choose_from_square(&self, player: Color) -> (Position, HashMap<Position, ChessMove>) {
         let (from_index, valid_moves) = loop {
             let from_index = input_chess_index(&format!(
                 "{} player, what piece to you want to move?",
                 player
             ));
-            match self.game().board().piece_at(from_index) {
+            match self.game().board().get_piece(from_index) {
                 Some(piece) if piece.color() == player => {
-                    let valid_moves = self.game().valid_moves_from(from_index);
+                    let valid_moves = self.game().get_moves_from(from_index);
                     if valid_moves.is_empty() {
-                        println!("your piece at {} has no valid moves", from_index);
+                        println!("your piece at {:?} has no valid moves", from_index);
                         println!("enter a new index: ");
                     } else {
-                        println!("these are the valid moves from {}", from_index);
+                        println!("these are the valid moves from {:?}", from_index);
                         self.print_highlighted(player, &valid_moves);
                     }
                     break (from_index, valid_moves);
                 }
                 _ => {
                     println!(
-                        "the {} square does not contain a piece that you can move",
+                        "the {:?} square does not contain a piece that you can move",
                         from_index
                     );
                     println!("enter a new index: ");
@@ -110,10 +111,10 @@ impl PlayLocal {
             valid_moves
                 .into_iter()
                 .map(|m| match m {
-                    ChessMove::Regular(rm) => (rm.to_idx(), m),
-                    ChessMove::Castle(cm) => (cm.king_to(), m),
-                    ChessMove::Promotion(pm) => (pm.to_idx(), m),
-                    ChessMove::EnPassant(epm) => (epm.to_idx(), m),
+                    ChessMove::Regular { to, .. } => (to, m),
+                    ChessMove::Castle { king_to, .. } => (king_to, m),
+                    ChessMove::Promotion { to, .. } => (to, m),
+                    ChessMove::EnPassant { to, .. } => (to, m),
                 })
                 .collect(),
         )
@@ -124,15 +125,15 @@ impl PlayLocal {
             Color::Black => {
                 println!(
                     "{}",
-                    chess::fmt::blacks_perspective(
+                    blacks_perspective(
                         &self.game().board(),
                         &highlighted
                             .iter()
-                            .map(|vm| match vm {
-                                ChessMove::Regular(rm) => rm.to_idx(),
-                                ChessMove::Castle(cm) => cm.king_to(),
-                                ChessMove::Promotion(pm) => pm.to_idx(),
-                                ChessMove::EnPassant(em) => em.to_idx(),
+                            .map(|vm| *match vm {
+                                ChessMove::Regular { to, .. } => to,
+                                ChessMove::Castle { king_to, .. } => king_to,
+                                ChessMove::Promotion { to, .. } => to,
+                                ChessMove::EnPassant { to, .. } => to,
                             })
                             .collect(),
                     )
@@ -141,15 +142,15 @@ impl PlayLocal {
             Color::White => {
                 println!(
                     "{}",
-                    chess::fmt::whites_perspective(
+                    whites_perspective(
                         &self.game().board(),
                         &highlighted
                             .iter()
-                            .map(|vm| match vm {
-                                ChessMove::Regular(rm) => rm.to_idx(),
-                                ChessMove::Castle(cm) => cm.king_to(),
-                                ChessMove::Promotion(pm) => pm.to_idx(),
-                                ChessMove::EnPassant(em) => em.to_idx(),
+                            .map(|vm| *match vm {
+                                ChessMove::Regular { to, .. } => to,
+                                ChessMove::Castle { king_to, .. } => king_to,
+                                ChessMove::Promotion { to, .. } => to,
+                                ChessMove::EnPassant { to, .. } => to,
                             })
                             .collect(),
                     )
@@ -159,7 +160,7 @@ impl PlayLocal {
     }
 }
 
-fn input_chess_index(reason: &str) -> ChessIndex {
+fn input_chess_index(reason: &str) -> Position {
     let stdin = io::stdin();
     loop {
         println!("{}", reason);
@@ -169,12 +170,12 @@ fn input_chess_index(reason: &str) -> ChessIndex {
             buffer.trim().to_owned()
         };
 
-        match ChessIndex::from_str(&input) {
+        match Position::from_str(&input) {
             Ok(idx) => {
                 return idx;
             }
-            Err(err) => {
-                println!("invalid format of index: '{}'", err);
+            Err(_) => {
+                println!("invalid format of index");
             }
         }
     }

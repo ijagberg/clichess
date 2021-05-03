@@ -1,8 +1,7 @@
-use chess::ChessBoard;
 use modes::PlayLocalOpts;
-use std::collections::HashSet;
 use structopt::StructOpt;
 
+mod fmt;
 mod modes;
 
 #[derive(StructOpt, Debug)]
@@ -25,16 +24,4 @@ fn main() {
             game.play().unwrap();
         }
     }
-}
-
-fn print_whites_perspective(board: &ChessBoard) {
-    println!("---");
-    println!("{}", chess::fmt::whites_perspective(board, &HashSet::new()));
-    println!("---");
-}
-
-fn print_blacks_perspective(board: &ChessBoard) {
-    println!("---");
-    println!("{}", chess::fmt::blacks_perspective(board, &HashSet::new()));
-    println!("---");
 }

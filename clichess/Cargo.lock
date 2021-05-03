@@ -29,7 +29,7 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 [[package]]
 name = "chess"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/chess.git?branch=develop#b7397d6bd03c6499415004696752da20800a1811"
+source = "git+https://github.com/ijagberg/chess.git?branch=develop#4046be67f1aa9192a3bc9403e67677a927a5cdf3"
 dependencies = [
  "simple-grid",
 ]
@@ -56,10 +56,6 @@ dependencies = [
  "chess",
  "structopt",
 ]
-
-[[package]]
-name = "clichess-server"
-version = "0.1.0"
 
 [[package]]
 name = "heck"
