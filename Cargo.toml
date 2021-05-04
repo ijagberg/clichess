@@ -1,2 +1,2 @@
 [workspace]
-members = ["clichess", "clichess-server"]
+members = ["clichess", "clichess-server", "clichess-model"]
