@@ -5,10 +5,6 @@ fn main() {
 
     for request in server.filter_map(Result::ok) {
         // Spawn a new thread for each connection.
-        if !request.protocols().contains(&"rust-websocket".to_string()) {
-            request.reject().unwrap();
-            return;
-        }
         std::thread::spawn(|| {
             let client = request.use_protocol("rust-websocket").accept().unwrap();
             let ip = client.peer_addr().unwrap();
