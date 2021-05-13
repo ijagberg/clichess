@@ -1,35 +1,23 @@
-use websocket::{sync::Server, OwnedMessage};
+mod lobby;
+mod messages;
+mod start;
+mod ws;
 
-fn main() {
-    let server = Server::bind("127.0.0.1:2794").unwrap();
+use actix::Actor;
+use actix_web::{App, HttpServer};
+use lobby::Lobby;
+use start::start_connection as start_connection_route;
 
-    for request in server.filter_map(Result::ok) {
-        // Spawn a new thread for each connection.
-        std::thread::spawn(|| {
-            let client = request.use_protocol("rust-websocket").accept().unwrap();
-            let ip = client.peer_addr().unwrap();
-            println!("Connection from {}", ip);
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let chat_server = Lobby::default().start(); //create and spin up a lobby
 
-            let (mut receiver, mut sender) = client.split().unwrap();
-
-            for message in receiver.incoming_messages() {
-                let message = message.unwrap();
-
-                match message {
-                    OwnedMessage::Close(_) => {
-                        let message = OwnedMessage::Close(None);
-                        sender.send_message(&message).unwrap();
-                        println!("Client {} disconnected", ip);
-                        return;
-                    }
-                    OwnedMessage::Text(content) => {
-                        println!("content: {}", content);
-                        let response = format!("pong: {}", content);
-                        sender.send_message(&OwnedMessage::Text(response)).unwrap();
-                    }
-                    unsupported => println!("unsupported: {:?}", unsupported),
-                }
-            }
-        });
-    }
+    HttpServer::new(move || {
+        App::new()
+            .service(start_connection_route) //. rename with "as" import or naming conflict
+            .data(chat_server.clone()) //register the lobby
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }
