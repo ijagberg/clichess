@@ -11,14 +11,14 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct WsConn {
-    room: Uuid,
+    room: String,
     lobby_addr: Addr<Lobby>,
     hb: Instant,
     id: Uuid,
 }
 
 impl WsConn {
-    pub fn new(room: Uuid, lobby: Addr<Lobby>) -> WsConn {
+    pub fn new(room: String, lobby: Addr<Lobby>) -> WsConn {
         WsConn {
             id: Uuid::new_v4(),
             room,
@@ -33,7 +33,7 @@ impl WsConn {
                 println!("Disconnecting failed heartbeat");
                 act.lobby_addr.do_send(Disconnect {
                     id: act.id,
-                    room_id: act.room,
+                    room_id: act.room.clone(),
                 });
                 ctx.stop();
                 return;
@@ -54,7 +54,7 @@ impl Actor for WsConn {
         self.lobby_addr
             .send(Connect {
                 addr: addr.recipient(),
-                lobby_id: self.room,
+                room_id: self.room.clone(),
                 self_id: self.id,
             })
             .into_actor(self)
@@ -71,7 +71,7 @@ impl Actor for WsConn {
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         self.lobby_addr.do_send(Disconnect {
             id: self.id,
-            room_id: self.room,
+            room_id: self.room.clone(),
         });
         Running::Stop
     }
@@ -98,10 +98,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
             Ok(ws::Message::Nop) => (),
             Ok(ws::Message::Text(s)) => self.lobby_addr.do_send(ClientActorMessage {
                 id: self.id,
-                msg: s,
-                room_id: self.room,
+                content: s,
+                room_id: self.room.clone(),
             }),
-
             Err(e) => panic!(e),
         }
     }

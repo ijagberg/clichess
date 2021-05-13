@@ -6,8 +6,8 @@ use uuid::Uuid;
 type Socket = Recipient<WsMessage>;
 
 pub struct Lobby {
-    sessions: HashMap<Uuid, Socket>,     //self id to self
-    rooms: HashMap<Uuid, HashSet<Uuid>>, //room id to list of users id
+    sessions: HashMap<Uuid, Socket>,       //self id to self
+    rooms: HashMap<String, HashSet<Uuid>>, //room id to list of users id
 }
 
 impl Lobby {
@@ -65,13 +65,13 @@ impl Handler<Connect> for Lobby {
     fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
         // create a room if necessary, and then add the id to it
         self.rooms
-            .entry(msg.lobby_id)
+            .entry(msg.room_id.clone())
             .or_insert_with(HashSet::new)
             .insert(msg.self_id);
 
         // send to everyone in the room that new uuid just joined
         self.rooms
-            .get(&msg.lobby_id)
+            .get(&msg.room_id)
             .unwrap()
             .iter()
             .filter(|conn_id| *conn_id.to_owned() != msg.self_id)
@@ -91,16 +91,17 @@ impl Handler<ClientActorMessage> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: ClientActorMessage, _: &mut Context<Self>) -> Self::Result {
-        if msg.msg.starts_with("\\w") {
-            if let Some(id_to) = msg.msg.split(' ').collect::<Vec<&str>>().get(1) {
-                self.send_message(&msg.msg, &Uuid::parse_str(id_to).unwrap());
+        println!("received message from {} containing '{}'", msg.id, msg.content);
+        if msg.content.starts_with("\\w") {
+            if let Some(id_to) = msg.content.split(' ').collect::<Vec<&str>>().get(1) {
+                self.send_message(&msg.content, &Uuid::parse_str(id_to).unwrap());
             }
         } else {
             self.rooms
                 .get(&msg.room_id)
                 .unwrap()
                 .iter()
-                .for_each(|client| self.send_message(&msg.msg, client));
+                .for_each(|client| self.send_message(&msg.content, client));
         }
     }
 }
